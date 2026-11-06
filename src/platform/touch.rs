@@ -760,13 +760,13 @@ impl TouchSource {
         }
         let placed = self.placed();
         let play = matches!(self.scene, TouchScene::Play { .. });
-        // The letterbox bars beside the picture and the bottom-left corner bomb, as in the TH07 port.
-        if play && self.bomb_zone(p) {
-            self.pulse(BOMB);
-            return;
-        }
+        // Controls win over the bomb zone (the Esc button sits in the left letterbox bar).
         let on = if let Some(b) = placed.iter().find(|c| c.ctl != Ctl::Move && c.hit(p)) {
             On::Button(b.ctl)
+        } else if play && self.bomb_zone(p) {
+            // The right letterbox bar bombs (the TH07 port's zone, left side removed).
+            self.pulse(BOMB);
+            return;
         } else if !self.fingers.iter().any(|f| f.on == On::Move) {
             // Drag anywhere: the move zone is the whole safe rect by default.
             On::Move
@@ -969,15 +969,13 @@ impl TouchSource {
     }
 
     // Window px → game px (the blit's letterbox scale in the safe rect).
-    // The bomb zones of the TH07 touch scheme: the letterbox bars beside the picture, and the bottom-left corner.
+    // The bomb zone of the fork's touch scheme: the right letterbox bar beside the picture only (the left bar is
+    // free for the Esc button and for dragging).
     fn bomb_zone(&self, p: [f32; 2]) -> bool {
         let scale = self.game_scale();
         let rw = SCREEN[0] * scale;
         let rx = self.origin[0] + (self.size[0] - rw) / 2.0;
-        if rw + 1.0 < self.size[0] && (p[0] < rx || p[0] > rx + rw) {
-            return true;
-        }
-        p[0] < self.origin[0] + 0.15 * self.size[0] && p[1] > self.origin[1] + 0.85 * self.size[1]
+        rw + 1.0 < self.size[0] && p[0] > rx + rw
     }
 
     fn game_scale(&self) -> f32 {
