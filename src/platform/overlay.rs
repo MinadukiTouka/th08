@@ -32,7 +32,8 @@ pub(crate) fn label(lang: Lang, c: Ctl, s: Screen) -> &'static str {
         (Ctl::Shot, _) => "touch_shot",
         (Ctl::Bomb, _) => "touch_bomb",
         (Ctl::Focus, _) => "touch_focus",
-        (Ctl::Pause, _) => "touch_pause",
+        // The fork shows only this control: it stands for the original's Esc key.
+        (Ctl::Pause, _) => return "Esc",
         (Ctl::Skip, _) => "touch_skip",
         (Ctl::Auto, _) => "touch_auto",
         (Ctl::Menu, _) => "touch_menu",

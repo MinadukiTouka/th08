@@ -12,6 +12,9 @@ pub type Words = [u16; MAX_PLAYERS];
 pub struct RawInput {
     pub keys: Words,
     pub pads: [PadState; MAX_PLAYERS],
+    // Port-only analog movement of this poll (game px for one calc), already focus- and speed-capped by the touch
+    // layer; zero when the keyboard / pad drives the player.
+    pub analog: [f32; 2],
 }
 
 // C `localtime` fields (15 §2.3, §3.5; 16 §2.2): month 1–12, day 1–31.

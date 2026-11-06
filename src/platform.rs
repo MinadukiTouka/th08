@@ -399,6 +399,7 @@ impl Host for AppHost {
             keys: self.input.poll(),
             ..Default::default()
         };
+        r.analog = self.input.touch.take_analog();
         r.pads[0] = self.joystick.poll();
         r
     }

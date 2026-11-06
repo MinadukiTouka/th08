@@ -1056,19 +1056,40 @@ impl Player {
         } else {
             (self.sht.speed, self.sht.diag)
         };
-        let (mut vx, mut vy) = match self.direction {
-            1 => (0.0, -ortho),
-            2 => (0.0, ortho),
-            3 => (-ortho, 0.0),
-            4 => (ortho, 0.0),
-            5 => (-diag, -diag),
-            6 => (diag, -diag),
-            7 => (-diag, diag),
-            8 => (diag, diag),
-            _ => (0.0, 0.0),
+        let (vx, vy) = if inp.analog != [0.0, 0.0] {
+            // Port-only touch drag (the TH07 port's scheme): the displacement itself replaces the 8-way key vector, so
+            // the player keeps the finger's direction at the shot type's speed instead of the key axes' speeds. The
+            // touch layer already capped it to `speed` / `speed_focus` and applied the focus ratio.
+            let d = [
+                inp.analog[0] * self.speed_mult[0],
+                inp.analog[1] * self.speed_mult[1],
+            ];
+            self.direction = match (d[1] < 0.0, d[1] > 0.0, d[0] < 0.0, d[0] > 0.0) {
+                (true, _, true, _) => 5,
+                (_, true, true, _) => 7,
+                (true, _, _, true) => 6,
+                (_, true, _, true) => 8,
+                (_, true, _, _) => 2,
+                (true, ..) => 1,
+                (_, _, true, _) => 3,
+                (_, _, _, true) => 4,
+                _ => 0,
+            };
+            (d[0] / gs.max(f32::EPSILON), d[1] / gs.max(f32::EPSILON))
+        } else {
+            let (vx, vy) = match self.direction {
+                1 => (0.0, -ortho),
+                2 => (0.0, ortho),
+                3 => (-ortho, 0.0),
+                4 => (ortho, 0.0),
+                5 => (-diag, -diag),
+                6 => (diag, -diag),
+                7 => (-diag, diag),
+                8 => (diag, diag),
+                _ => (0.0, 0.0),
+            };
+            (vx * self.speed_mult[0], vy * self.speed_mult[1])
         };
-        vx *= self.speed_mult[0];
-        vy *= self.speed_mult[1];
         let base = self.sprite_base(f);
         let pvx = self.last_v[0];
         // Start/stop scripts 1–4 (+5 youkai) against the previous frame's vx.

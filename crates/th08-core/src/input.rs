@@ -93,6 +93,8 @@ pub struct Input {
     pub shot_slow: u16,
     pub held: u16,
     pub prev: u16,
+    // Port-only touch drag of this poll (see host::RawInput::analog).
+    pub analog: [f32; 2],
     // Unchanged-input counter 0x164D53C and key-repeat flag 0x164D538.
     pub same_frames: u32,
     pub repeat: bool,
@@ -106,6 +108,7 @@ impl Input {
     // Input_Poll 0x43D970 (15 §1.1): player 0's keyboard word and joystick bits of one host poll, run before `tick`.
     pub fn poll(&mut self, cfg: &crate::config::Config, p: &crate::host::RawInput) {
         self.raw = p.keys[0];
+        self.analog = p.analog;
         self.poll_joystick(cfg, p.pads[0]);
     }
 

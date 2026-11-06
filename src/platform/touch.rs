@@ -137,32 +137,38 @@ pub struct TouchLayout {
 }
 
 impl Default for TouchLayout {
-    // Laid out for a 20:9 phone: landscape = movement on the left part, buttons in the right letterbox bar;
-    // portrait = both under the game picture.
+    // The TH07 port's touch scheme: one Esc button at the top-left (the original's Esc key, long press = port menu);
+    // movement, shooting and focus are gestures. Hidden controls stay in the list so the layout editor can bring
+    // them back.
     fn default() -> Self {
-        Self {
-            landscape: vec![
-                // Drag anywhere: the move zone covers the picture and is invisible; the TH07 touch scheme.
-                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: false },
-                c(Ctl::Shot, 0.935, 0.75, 15.0, 15.0),
-                c(Ctl::Bomb, 0.94, 0.47, 11.0, 11.0),
-                c(Ctl::Focus, 0.835, 0.90, 12.0, 12.0),
-                c(Ctl::Auto, 0.85, 0.57, 8.0, 8.0),
-                c(Ctl::Skip, 0.85, 0.09, 8.0, 8.0),
-                c(Ctl::Pause, 0.95, 0.09, 8.0, 8.0),
-                c(Ctl::Menu, 0.04, 0.09, 8.0, 8.0),
-            ],
-            portrait: vec![
-                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: false },
-                c(Ctl::Shot, 0.84, 0.85, 15.0, 15.0),
-                c(Ctl::Bomb, 0.84, 0.70, 11.0, 11.0),
-                c(Ctl::Focus, 0.62, 0.93, 12.0, 12.0),
-                c(Ctl::Auto, 0.62, 0.78, 8.0, 8.0),
-                c(Ctl::Skip, 0.72, 0.06, 8.0, 8.0),
-                c(Ctl::Pause, 0.90, 0.06, 8.0, 8.0),
-                c(Ctl::Menu, 0.08, 0.06, 8.0, 8.0),
-            ],
+        let mut landscape = vec![
+            Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: false },
+            c(Ctl::Shot, 0.935, 0.75, 15.0, 15.0),
+            c(Ctl::Bomb, 0.94, 0.47, 11.0, 11.0),
+            c(Ctl::Focus, 0.835, 0.90, 12.0, 12.0),
+            c(Ctl::Auto, 0.85, 0.57, 8.0, 8.0),
+            c(Ctl::Skip, 0.85, 0.09, 8.0, 8.0),
+            c(Ctl::Pause, 0.05, 0.10, 9.0, 9.0),
+            c(Ctl::Menu, 0.05, 0.26, 8.0, 8.0),
+        ];
+        let mut portrait = vec![
+            Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: false },
+            c(Ctl::Shot, 0.84, 0.85, 15.0, 15.0),
+            c(Ctl::Bomb, 0.84, 0.70, 11.0, 11.0),
+            c(Ctl::Focus, 0.62, 0.93, 12.0, 12.0),
+            c(Ctl::Auto, 0.62, 0.78, 8.0, 8.0),
+            c(Ctl::Skip, 0.72, 0.06, 8.0, 8.0),
+            c(Ctl::Pause, 0.12, 0.06, 9.0, 9.0),
+            c(Ctl::Menu, 0.30, 0.06, 8.0, 8.0),
+        ];
+        for col in [&mut landscape, &mut portrait] {
+            for c in col.iter_mut() {
+                if c.ctl != Ctl::Pause {
+                    c.visible = false;
+                }
+            }
         }
+        Self { landscape, portrait }
     }
 }
 
@@ -487,6 +493,9 @@ pub struct TouchSource {
     focus_on: bool,
     // When the movement finger was last released (the auto-fire tail of the TH07 touch scheme).
     move_released: Option<Instant>,
+    // Drag displacement (game px) not yet handed to the player, and this poll's analog movement.
+    drag: [f32; 2],
+    analog: [f32; 2],
     scene: TouchScene,
     // Drag target (game px) and the previous poll's request / position (wall re-anchoring).
     target: Option<[f32; 2]>,
@@ -534,6 +543,8 @@ impl TouchSource {
             // Gesture fingers must not survive a screen change (a held drag would keep steering).
             self.fingers.clear();
             self.move_released = None;
+            self.drag = [0.0; 2];
+            self.analog = [0.0; 2];
         }
         self.scene = s;
     }
@@ -549,6 +560,8 @@ impl TouchSource {
             self.mouse_down = false;
             self.menu_req = false;
             self.move_released = None;
+            self.drag = [0.0; 2];
+            self.analog = [0.0; 2];
         }
     }
 
@@ -699,6 +712,17 @@ impl TouchSource {
         match phase {
             TouchPhase::Started => self.down(id, p),
             TouchPhase::Moved => {
+                let play = matches!(self.scene, TouchScene::Play { .. });
+                let past = self.fingers.iter().find(|f| f.id == id).map(|f| (f.on, f.last));
+                if let Some((on, last)) = past
+                    && play
+                    && on == On::Move
+                    && self.cfg.movement == Movement::Drag
+                {
+                    let k = self.cfg.sens / self.game_scale();
+                    self.drag[0] += (p[0] - last[0]) * k;
+                    self.drag[1] += (p[1] - last[1]) * k;
+                }
                 if let Some(f) = self.fingers.iter_mut().find(|f| f.id == id) {
                     f.last = p;
                     f.travel = f.travel.max(len(p[0] - f.start[0], p[1] - f.start[1]));
@@ -736,20 +760,9 @@ impl TouchSource {
         }
         let placed = self.placed();
         let play = matches!(self.scene, TouchScene::Play { .. });
-        let gestures = self
-            .fingers
-            .iter()
-            .filter(|f| matches!(f.on, On::Move | On::Focus))
-            .count();
         // The letterbox bars beside the picture and the bottom-left corner bomb, as in the TH07 port.
         if play && self.bomb_zone(p) {
             self.pulse(BOMB);
-            return;
-        }
-        // Four gesture fingers at once pause.
-        if play && gestures >= 3 {
-            self.pulse(PAUSE);
-            self.fingers.clear();
             return;
         }
         let on = if let Some(b) = placed.iter().find(|c| c.ctl != Ctl::Move && c.hit(p)) {
@@ -800,6 +813,13 @@ impl TouchSource {
             && !(c == Ctl::Focus && self.cfg.focus_toggle)
         {
             self.pulse(c.bit());
+        }
+        if f.on == On::Button(Ctl::Pause)
+            && ended
+            && f.started.elapsed() >= Duration::from_millis(600)
+        {
+            // Long press on Esc: the port menu (touch layout, hitboxes, ...), since no MENU button is shown any more.
+            self.menu_req = true;
         }
         if f.on == On::Move {
             self.target = None;
@@ -852,6 +872,7 @@ impl TouchSource {
             return 0;
         }
         let toggle = self.cfg.focus_toggle;
+        self.analog = [0.0; 2];
         for f in &mut self.fingers {
             f.polled = true;
         }
@@ -900,8 +921,30 @@ impl TouchSource {
                 if toggle && self.focus_on {
                     w |= FOCUS;
                 }
-                let v = if w & FOCUS != 0 { speed[1] } else { speed[0] };
-                w |= self.steer(pos, [v * mult[0], v * mult[1]]);
+                if self.cfg.movement == Movement::Drag {
+                    // TH07 scheme: hand the drag to the player as an analog displacement; a fast swipe beyond the shot
+                    // type's speed keeps the rest for the next polls instead of dropping it.
+                    let focus = w & FOCUS != 0;
+                    let ratio = if focus && speed[0] != 0.0 { speed[1] / speed[0] } else { 1.0 };
+                    let max = if focus { speed[1] } else { speed[0] };
+                    let want = [self.drag[0] * ratio, self.drag[1] * ratio];
+                    let mag = (want[0] * want[0] + want[1] * want[1]).sqrt();
+                    let d = if mag > max && mag > 0.0 {
+                        [want[0] * max / mag, want[1] * max / mag]
+                    } else {
+                        want
+                    };
+                    if ratio != 0.0 {
+                        self.drag[0] -= d[0] / ratio;
+                        self.drag[1] -= d[1] / ratio;
+                    } else {
+                        self.drag = [0.0; 2];
+                    }
+                    self.analog = d;
+                } else {
+                    let v = if w & FOCUS != 0 { speed[1] } else { speed[0] };
+                    w |= self.steer(pos, [v * mult[0], v * mult[1]]);
+                }
             }
             TouchScene::Menu => w |= self.menu(),
         }
@@ -914,6 +957,11 @@ impl TouchSource {
         }
         self.last_word = w;
         w
+    }
+
+    // This poll's analog movement (game px for one calc); the host puts it into RawInput.
+    pub fn take_analog(&mut self) -> [f32; 2] {
+        std::mem::take(&mut self.analog)
     }
 
     fn move_finger(&mut self) -> Option<&mut Finger> {
