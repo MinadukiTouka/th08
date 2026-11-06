@@ -71,6 +71,9 @@ abstract class SettingsSchema : DefaultTask() {
     @get:Internal abstract val repo: DirectoryProperty
     @get:OutputDirectory abstract val outputDir: DirectoryProperty
     @get:Inject abstract val execOps: ExecOperations
+    // Optional pre-generated schema (th08.schemaFile): lets a low-memory host build the APK without compiling the
+    // host game binary. Empty means: run the Rust tool.
+    @get:Input abstract val schemaFile: Property<String>
 
     init {
         outputs.upToDateWhen { false }
@@ -80,6 +83,13 @@ abstract class SettingsSchema : DefaultTask() {
     fun run() {
         val root = repo.get().asFile
         val out = outputDir.get().asFile.also { it.mkdirs() }
+        val prebuilt = schemaFile.get()
+        if (prebuilt.isNotEmpty()) {
+            val source = File(prebuilt)
+            if (!source.isFile) throw GradleException("th08.schemaFile not found: $prebuilt")
+            source.copyTo(File(out, "settings_schema.json"), overwrite = true)
+            return
+        }
         execOps.exec {
             workingDir = root
             commandLine("cargo", "run", "-q", "--release",
@@ -227,7 +237,10 @@ androidComponents {
             channel.set(if (v.buildType == "debug") "debug" else appChannel)
             repo.set(repoDir)
         }
-        val schema = tasks.register<SettingsSchema>("settingsSchema$cap") { repo.set(repoDir) }
+        val schema = tasks.register<SettingsSchema>("settingsSchema$cap") {
+            repo.set(repoDir)
+            schemaFile.set(prop("th08.schemaFile") ?: "")
+        }
         val data = tasks.register<GameData>("gameData$cap") { files.from(gameFiles(prop("th08.data"))) }
         val packs = tasks.register<PackAssets>("packAssets$cap") { dirs.from(packDirs()) }
         v.sources.jniLibs?.addGeneratedSourceDirectory(cargo, CargoBuild::outputDir)

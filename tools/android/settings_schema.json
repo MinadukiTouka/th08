@@ -1,0 +1,3912 @@
+{
+  "entries": [
+    {
+      "audience": "player",
+      "default": "",
+      "group": "game_data",
+      "help": "game folder with th08.dat and thbgm.dat (also the first plain argument)",
+      "ja": {
+        "help": "th08.dat と thbgm.dat のあるゲームフォルダ（最初の引数でも指定可）",
+        "label": "ゲームフォルダ",
+        "summary": "th08.dat と thbgm.dat のあるフォルダ",
+        "unit": "",
+        "words": []
+      },
+      "key": "game_dir",
+      "kind": {
+        "type": "path"
+      },
+      "label": "Game folder",
+      "persist": true,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "папка игры с th08.dat и thbgm.dat (можно указать и первым аргументом)",
+        "label": "Папка игры",
+        "summary": "Папка с th08.dat и thbgm.dat",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Folder with th08.dat and thbgm.dat",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "auto",
+      "group": "language",
+      "help": "language of this screen and the port menu: auto (system language), ja, en or ru",
+      "ja": {
+        "help": "この画面と移植版メニューの言語: auto（システムの言語）、ja、en、ru",
+        "label": "言語",
+        "summary": "設定画面の言語",
+        "unit": "",
+        "words": [
+          {
+            "label": "システムの言語",
+            "value": "auto"
+          },
+          {
+            "label": "日本語",
+            "value": "ja"
+          },
+          {
+            "label": "English",
+            "value": "en"
+          },
+          {
+            "label": "Русский",
+            "value": "ru"
+          }
+        ]
+      },
+      "key": "language",
+      "kind": {
+        "choices": [
+          "auto",
+          "ja",
+          "en",
+          "ru"
+        ],
+        "type": "enum"
+      },
+      "label": "Language",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "язык этого экрана и меню порта: auto (язык системы), ja, en или ru",
+        "label": "Язык",
+        "summary": "Язык экранов настроек",
+        "unit": "",
+        "words": [
+          {
+            "label": "Как в системе",
+            "value": "auto"
+          },
+          {
+            "label": "日本語",
+            "value": "ja"
+          },
+          {
+            "label": "English",
+            "value": "en"
+          },
+          {
+            "label": "Русский",
+            "value": "ru"
+          }
+        ]
+      },
+      "summary": "Language of the settings screens",
+      "unit": "",
+      "words": [
+        {
+          "label": "System",
+          "value": "auto"
+        },
+        {
+          "label": "日本語",
+          "value": "ja"
+        },
+        {
+          "label": "English",
+          "value": "en"
+        },
+        {
+          "label": "Русский",
+          "value": "ru"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "follow",
+      "group": "language",
+      "help": "language of dialogue and other game text: follow (the screen language), ja (original) or the code of an installed translation (en, ru, de, pt-br…)",
+      "ja": {
+        "help": "会話などゲーム内テキストの言語: follow（画面の言語に合わせる）、ja（オリジナル）、またはインストール済みの翻訳の言語コード（en、ru、de、pt-br…）",
+        "label": "ゲーム内テキストの言語",
+        "summary": "ゲーム中のテキストの言語",
+        "unit": "",
+        "words": [
+          {
+            "label": "画面の言語に合わせる",
+            "value": "follow"
+          },
+          {
+            "label": "日本語（オリジナル）",
+            "value": "ja"
+          }
+        ]
+      },
+      "key": "game_text",
+      "kind": {
+        "choices": [
+          "follow",
+          "ja"
+        ],
+        "type": "enum"
+      },
+      "label": "Game text language",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "язык диалогов и прочего текста игры: follow (как у экранов), ja (оригинал) или код установленного перевода (en, ru, de, pt-br…)",
+        "label": "Язык текста в игре",
+        "summary": "Язык текста внутри игры",
+        "unit": "",
+        "words": [
+          {
+            "label": "Как у экранов",
+            "value": "follow"
+          },
+          {
+            "label": "日本語 (оригинал)",
+            "value": "ja"
+          }
+        ]
+      },
+      "summary": "Language of the in-game text",
+      "unit": "",
+      "words": [
+        {
+          "label": "Same as the screens",
+          "value": "follow"
+        },
+        {
+          "label": "日本語 (original)",
+          "value": "ja"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "1",
+      "group": "display",
+      "help": "window size 640x480 times this (native)",
+      "ja": {
+        "help": "ウィンドウサイズを 640x480 のこの倍率にする（ネイティブ版）",
+        "label": "ウィンドウサイズ",
+        "summary": "640×480 の何倍で表示するか",
+        "unit": "×",
+        "words": []
+      },
+      "key": "scale",
+      "kind": {
+        "max": 4,
+        "min": 1,
+        "type": "int"
+      },
+      "label": "Window size",
+      "persist": true,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "размер окна: 640x480, умноженное на это число (нативная версия)",
+        "label": "Размер окна",
+        "summary": "Размер окна, кратный 640×480",
+        "unit": "×",
+        "words": []
+      },
+      "summary": "Window size as a multiple of 640×480",
+      "unit": "×",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "off",
+      "group": "display",
+      "help": "start fullscreen (native; F11 or Alt+Enter toggles and saves)",
+      "ja": {
+        "help": "フルスクリーンで起動（ネイティブ版。F11 か Alt+Enter で切り替えて保存）",
+        "label": "フルスクリーン",
+        "summary": "フルスクリーンで起動",
+        "unit": "",
+        "words": []
+      },
+      "key": "fullscreen",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Fullscreen",
+      "persist": true,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "запуск во весь экран (нативная версия; F11 или Alt+Enter переключают и сохраняют)",
+        "label": "Полный экран",
+        "summary": "Запускать во весь экран",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Start in fullscreen",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "on",
+      "group": "display",
+      "help": "present with vsync (default on); frame pacing is separate",
+      "ja": {
+        "help": "垂直同期して表示（初期値はオン）。フレームレート制御とは別です",
+        "label": "垂直同期",
+        "summary": "フレームをディスプレイに同期",
+        "unit": "",
+        "words": []
+      },
+      "key": "vsync",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "VSync",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "вывод с вертикальной синхронизацией (по умолчанию вкл.); темп кадров управляется отдельно",
+        "label": "Вертикальная синхронизация",
+        "summary": "Синхронизировать кадры с дисплеем",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Sync frames to the display",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "0",
+      "group": "display",
+      "help": "extra margin on every screen edge in dp, for phones whose cutout / corner insets are wrong",
+      "ja": {
+        "help": "画面の各辺に追加する余白 (dp)。ノッチや角の領域が正しく取れない端末向け",
+        "label": "画面の余白 (dp)",
+        "summary": "画面の端に空けておく余白",
+        "unit": " dp",
+        "words": [
+          {
+            "label": "なし",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "screen_margin",
+      "kind": {
+        "max": 200,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Screen margin (dp)",
+      "persist": true,
+      "platforms": [
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "дополнительный отступ от каждого края экрана в dp — для телефонов, где вырез или скругления углов определяются неверно",
+        "label": "Отступ от краёв (dp)",
+        "summary": "Дополнительное свободное место у краёв экрана",
+        "unit": " dp",
+        "words": [
+          {
+            "label": "Нет",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Extra space kept clear at the screen edges",
+      "unit": " dp",
+      "words": [
+        {
+          "label": "Off",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "on",
+      "group": "display",
+      "help": "show this screen at start; when off, hold Shift while th08 starts (web: ?launcher=1) to see it again",
+      "ja": {
+        "help": "起動時にこの画面を表示する。オフの場合、th08 の起動中に Shift を押し続ける（Web 版: ?launcher=1）と再び表示されます",
+        "label": "起動時にこの画面を表示",
+        "summary": "ゲーム開始前にこの画面を表示",
+        "unit": "",
+        "words": []
+      },
+      "key": "launcher",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Show this screen at start",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "показывать этот экран при запуске; если выключено, удерживайте Shift при запуске th08 (веб: ?launcher=1), чтобы снова его увидеть",
+        "label": "Показывать этот экран при запуске",
+        "summary": "Показывать этот экран перед игрой",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Show this screen before the game starts",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "on",
+      "group": "display",
+      "help": "ask GitHub at most once a day, from this screen only, whether a newer release exists; nothing is sent but the request itself",
+      "ja": {
+        "help": "この画面からのみ、1日1回まで GitHub に新しいリリースがあるか問い合わせます。リクエスト以外は何も送信しません",
+        "label": "アップデートを確認",
+        "summary": "新しいバージョンが出たらこの画面に表示します",
+        "unit": "",
+        "words": []
+      },
+      "key": "update_check",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Check for updates",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "раз в день, только с этого экрана, спрашивать GitHub, вышла ли новая версия; кроме самого запроса ничего не отправляется",
+        "label": "Проверять обновления",
+        "summary": "Показывать на этом экране, что вышла новая версия",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Show on this screen when a newer version is out",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "on",
+      "group": "display",
+      "help": "open the port menu when the window, browser tab or Android app loses focus during a stage (notification shade, split screen)",
+      "ja": {
+        "help": "ステージ中にウィンドウやブラウザのタブがフォーカスを失ったらポートメニューを開く",
+        "label": "フォーカスを失ったら一時停止",
+        "summary": "ステージ中に別のウィンドウへ切り替えるとポートメニューを開く",
+        "unit": "",
+        "words": []
+      },
+      "key": "pause_unfocused",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Pause when unfocused",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "открывать меню порта, когда окно или вкладка браузера теряет фокус во время уровня",
+        "label": "Пауза при потере фокуса",
+        "summary": "Открывать меню порта, если вы переключились в другое окно во время уровня",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Open the port menu when you switch away in a stage",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "sharp",
+      "group": "display",
+      "help": "window scaling: smooth (bilinear), sharp (crisp pixels with smooth edges) or nearest",
+      "ja": {
+        "help": "ウィンドウの拡大方法: smooth（バイリニア）、sharp（くっきりしたピクセルと滑らかな境目）、nearest",
+        "label": "拡大フィルタ",
+        "summary": "画面をウィンドウに合わせて拡大する方法",
+        "unit": "",
+        "words": [
+          {
+            "label": "スムーズ",
+            "value": "smooth"
+          },
+          {
+            "label": "シャープ",
+            "value": "sharp"
+          },
+          {
+            "label": "ドット",
+            "value": "nearest"
+          }
+        ]
+      },
+      "key": "scale_filter",
+      "kind": {
+        "choices": [
+          "smooth",
+          "sharp",
+          "nearest"
+        ],
+        "type": "enum"
+      },
+      "label": "Scaling filter",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "масштабирование окна: smooth (билинейное), sharp (чёткие пиксели со сглаженными краями) или nearest",
+        "label": "Фильтр масштабирования",
+        "summary": "Как картинка растягивается до размера окна",
+        "unit": "",
+        "words": [
+          {
+            "label": "Сглаженный",
+            "value": "smooth"
+          },
+          {
+            "label": "Чёткий",
+            "value": "sharp"
+          },
+          {
+            "label": "Пиксельный",
+            "value": "nearest"
+          }
+        ]
+      },
+      "summary": "How the picture is scaled to the window",
+      "unit": "",
+      "words": [
+        {
+          "label": "Smooth",
+          "value": "smooth"
+        },
+        {
+          "label": "Sharp",
+          "value": "sharp"
+        },
+        {
+          "label": "Pixelated",
+          "value": "nearest"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "off",
+      "group": "display",
+      "help": "scale the picture by the largest whole multiple of 640x480 that fits",
+      "ja": {
+        "help": "収まる最大の 640x480 の整数倍で画面を拡大する",
+        "label": "整数倍拡大",
+        "summary": "640×480 の整数倍だけで拡大",
+        "unit": "",
+        "words": []
+      },
+      "key": "integer_scale",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Integer scaling",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "масштабировать картинку на наибольшее целое кратное 640x480, которое помещается",
+        "label": "Целочисленное масштабирование",
+        "summary": "Масштаб только целыми кратными 640×480",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Scale only by whole multiples of 640×480",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "100",
+      "group": "sound",
+      "help": "port master volume in percent (the game's own BGM volume option stays as it is)",
+      "ja": {
+        "help": "ポートの全体音量（パーセント）。ゲーム自身の BGM 音量設定はそのまま",
+        "label": "全体音量",
+        "summary": "ゲームの音すべての音量",
+        "unit": "%",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "volume_master",
+      "kind": {
+        "max": 100,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Master volume",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "общая громкость порта в процентах (собственная настройка громкости музыки в игре не меняется)",
+        "label": "Общая громкость",
+        "summary": "Громкость всего звука игры",
+        "unit": "%",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Volume of all game sound",
+      "unit": "%",
+      "words": [
+        {
+          "label": "Off",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "100",
+      "group": "sound",
+      "help": "port music volume in percent",
+      "ja": {
+        "help": "ポートの BGM 音量（パーセント）",
+        "label": "BGM 音量",
+        "summary": "音楽の音量",
+        "unit": "%",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "volume_bgm",
+      "kind": {
+        "max": 100,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Music volume",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "громкость музыки порта в процентах",
+        "label": "Громкость музыки",
+        "summary": "Громкость музыки",
+        "unit": "%",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Volume of the music",
+      "unit": "%",
+      "words": [
+        {
+          "label": "Off",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "100",
+      "group": "sound",
+      "help": "port sound effect volume in percent",
+      "ja": {
+        "help": "ポートの効果音音量（パーセント）",
+        "label": "効果音音量",
+        "summary": "効果音の音量",
+        "unit": "%",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "volume_se",
+      "kind": {
+        "max": 100,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Sound effects volume",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "громкость звуковых эффектов порта в процентах",
+        "label": "Громкость эффектов",
+        "summary": "Громкость звуковых эффектов",
+        "unit": "%",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Volume of the sound effects",
+      "unit": "%",
+      "words": [
+        {
+          "label": "Off",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "on",
+      "group": "sound",
+      "help": "mute the sound while the window or browser tab is not focused",
+      "ja": {
+        "help": "ウィンドウやブラウザのタブにフォーカスがない間は音を消す",
+        "label": "非アクティブ時にミュート",
+        "summary": "別のウィンドウがアクティブな間は音を消す",
+        "unit": "",
+        "words": []
+      },
+      "key": "mute_unfocused",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Mute when unfocused",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "выключать звук, пока окно или вкладка браузера не в фокусе",
+        "label": "Без звука в фоне",
+        "summary": "Выключать звук, пока активно другое окно",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Silence the game while another window is active",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "0",
+      "group": "sound",
+      "help": "audio output buffer in frames (0 = the device default); raise it if the sound crackles",
+      "ja": {
+        "help": "音声出力バッファ（フレーム数、0 = デバイスの既定値）。音が途切れるときは大きくする",
+        "label": "オーディオバッファ",
+        "summary": "出力バッファの大きさ。大きくすると音切れが減る",
+        "unit": " フレーム",
+        "words": [
+          {
+            "label": "自動",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "audio_buffer",
+      "kind": {
+        "max": 8192,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Audio buffer",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "буфер вывода звука в кадрах (0 = по умолчанию устройства); увеличьте, если звук трещит",
+        "label": "Аудиобуфер",
+        "summary": "Размер буфера вывода; больше — меньше треска",
+        "unit": " кадров",
+        "words": [
+          {
+            "label": "Авто",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Output buffer size; larger fixes crackling",
+      "unit": " frames",
+      "words": [
+        {
+          "label": "Auto",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "off",
+      "group": "accessibility",
+      "help": "colour filter on the window picture: off, protan, deutan, tritan (colour-vision correction) or high_contrast",
+      "ja": {
+        "help": "ウィンドウ画面のカラーフィルタ: off、protan、deutan、tritan（色覚補正）、high_contrast",
+        "label": "カラーフィルタ",
+        "summary": "色覚やコントラストに合わせて色を調整",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "off"
+          },
+          {
+            "label": "1 型色覚",
+            "value": "protan"
+          },
+          {
+            "label": "2 型色覚",
+            "value": "deutan"
+          },
+          {
+            "label": "3 型色覚",
+            "value": "tritan"
+          },
+          {
+            "label": "ハイコントラスト",
+            "value": "high_contrast"
+          }
+        ]
+      },
+      "key": "color_filter",
+      "kind": {
+        "choices": [
+          "off",
+          "protan",
+          "deutan",
+          "tritan",
+          "high_contrast"
+        ],
+        "type": "enum"
+      },
+      "label": "Colour filter",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "цветовой фильтр картинки в окне: off, protan, deutan, tritan (коррекция цветового зрения) или high_contrast",
+        "label": "Цветовой фильтр",
+        "summary": "Цвета, подстроенные под цветовое зрение или контраст",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "off"
+          },
+          {
+            "label": "Протанопия",
+            "value": "protan"
+          },
+          {
+            "label": "Дейтеранопия",
+            "value": "deutan"
+          },
+          {
+            "label": "Тританопия",
+            "value": "tritan"
+          },
+          {
+            "label": "Высокий контраст",
+            "value": "high_contrast"
+          }
+        ]
+      },
+      "summary": "Colours adjusted for colour vision or contrast",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": "off"
+        },
+        {
+          "label": "Protanopia",
+          "value": "protan"
+        },
+        {
+          "label": "Deuteranopia",
+          "value": "deutan"
+        },
+        {
+          "label": "Tritanopia",
+          "value": "tritan"
+        },
+        {
+          "label": "High contrast",
+          "value": "high_contrast"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "100",
+      "group": "accessibility",
+      "help": "picture gamma in percent (100 = unchanged; higher brightens dark areas)",
+      "ja": {
+        "help": "画面のガンマ（パーセント、100 = 変更なし。上げると暗い所が明るくなる）",
+        "label": "明るさ",
+        "summary": "画面のガンマ。上げると暗い所が明るくなる",
+        "unit": "%",
+        "words": [
+          {
+            "label": "標準",
+            "value": "100"
+          }
+        ]
+      },
+      "key": "brightness",
+      "kind": {
+        "max": 200,
+        "min": 50,
+        "type": "int"
+      },
+      "label": "Brightness",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "гамма картинки в процентах (100 = без изменений; больше — светлее тёмные места)",
+        "label": "Яркость",
+        "summary": "Гамма картинки; больше — светлее тёмные места",
+        "unit": "%",
+        "words": [
+          {
+            "label": "Обычная",
+            "value": "100"
+          }
+        ]
+      },
+      "summary": "Gamma of the picture; higher brightens dark areas",
+      "unit": "%",
+      "words": [
+        {
+          "label": "Normal",
+          "value": "100"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "off",
+      "group": "accessibility",
+      "help": "hitbox viewer: off, player (the player's hit box and graze area) or all (plus bullets, lasers and enemies); F3 or the port menu switches it in the game",
+      "ja": {
+        "help": "当たり判定ビューア: off、player（自機の当たり判定とグレイズ範囲）、all（弾・レーザー・敵も）。ゲーム中は F3 か移植版メニューで切り替え",
+        "label": "当たり判定表示",
+        "summary": "当たり判定の形を表示（リプレイは変わらない）",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "off"
+          },
+          {
+            "label": "自機",
+            "value": "player"
+          },
+          {
+            "label": "すべて",
+            "value": "all"
+          }
+        ]
+      },
+      "key": "hitboxes",
+      "kind": {
+        "choices": [
+          "off",
+          "player",
+          "all"
+        ],
+        "type": "enum"
+      },
+      "label": "Hitboxes",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "показ хитбоксов: off, player (хитбокс персонажа и зона грейза) или all (ещё пули, лазеры и враги); в игре переключается F3 или в меню порта",
+        "label": "Хитбоксы",
+        "summary": "Контуры зон столкновений (реплеи не меняются)",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "off"
+          },
+          {
+            "label": "Персонаж",
+            "value": "player"
+          },
+          {
+            "label": "Все",
+            "value": "all"
+          }
+        ]
+      },
+      "summary": "Outline the collision shapes (replays stay the same)",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": "off"
+        },
+        {
+          "label": "Player",
+          "value": "player"
+        },
+        {
+          "label": "All",
+          "value": "all"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "auto",
+      "group": "touch",
+      "help": "touch overlay: auto (touch platforms), on, off",
+      "ja": {
+        "help": "タッチオーバーレイ: auto（タッチ対応の環境で表示）、on、off",
+        "label": "タッチオーバーレイ",
+        "summary": "タッチ画面用の画面上ボタン",
+        "unit": "",
+        "words": [
+          {
+            "label": "自動",
+            "value": "auto"
+          },
+          {
+            "label": "オン",
+            "value": "on"
+          },
+          {
+            "label": "オフ",
+            "value": "off"
+          }
+        ]
+      },
+      "key": "touch",
+      "kind": {
+        "choices": [
+          "auto",
+          "on",
+          "off"
+        ],
+        "type": "enum"
+      },
+      "label": "Touch overlay",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "сенсорные кнопки: auto (на сенсорных платформах), on, off",
+        "label": "Сенсорные кнопки",
+        "summary": "Экранные кнопки для сенсорных экранов",
+        "unit": "",
+        "words": [
+          {
+            "label": "Авто",
+            "value": "auto"
+          },
+          {
+            "label": "Вкл.",
+            "value": "on"
+          },
+          {
+            "label": "Выкл.",
+            "value": "off"
+          }
+        ]
+      },
+      "summary": "On-screen buttons for touch screens",
+      "unit": "",
+      "words": [
+        {
+          "label": "Auto",
+          "value": "auto"
+        },
+        {
+          "label": "On",
+          "value": "on"
+        },
+        {
+          "label": "Off",
+          "value": "off"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "stick",
+      "group": "touch",
+      "help": "movement: drag (the player follows the finger's movement) or a floating stick",
+      "ja": {
+        "help": "移動方法: ドラッグ（自機が指の動きについてくる）またはフローティングスティック",
+        "label": "移動方法",
+        "summary": "指で自機を動かす方法",
+        "unit": "",
+        "words": [
+          {
+            "label": "ドラッグ",
+            "value": "drag"
+          },
+          {
+            "label": "フローティングスティック",
+            "value": "stick"
+          }
+        ]
+      },
+      "key": "touch_move",
+      "kind": {
+        "choices": [
+          "drag",
+          "stick"
+        ],
+        "type": "enum"
+      },
+      "label": "Movement",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "перемещение: перетаскивание (персонаж повторяет движение пальца) или плавающий стик",
+        "label": "Перемещение",
+        "summary": "Как палец двигает персонажа",
+        "unit": "",
+        "words": [
+          {
+            "label": "Перетаскивание",
+            "value": "drag"
+          },
+          {
+            "label": "Плавающий стик",
+            "value": "stick"
+          }
+        ]
+      },
+      "summary": "How your finger moves the player",
+      "unit": "",
+      "words": [
+        {
+          "label": "Drag",
+          "value": "drag"
+        },
+        {
+          "label": "Floating stick",
+          "value": "stick"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "100",
+      "group": "touch",
+      "help": "drag sensitivity in percent (100 = the player follows the finger 1:1 on the game picture)",
+      "ja": {
+        "help": "ドラッグ感度（パーセント）。100 = ゲーム画面上で自機が指と 1:1 で動く",
+        "label": "ドラッグ感度 %",
+        "summary": "指の動きに対する自機の移動量",
+        "unit": "%",
+        "words": []
+      },
+      "key": "touch_sens",
+      "kind": {
+        "max": 400,
+        "min": 25,
+        "type": "int"
+      },
+      "label": "Drag sensitivity %",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "чувствительность перетаскивания в процентах (100 = персонаж движется за пальцем 1:1 по картинке игры)",
+        "label": "Чувствительность перетаскивания, %",
+        "summary": "Насколько персонаж сдвигается за движение пальца",
+        "unit": "%",
+        "words": []
+      },
+      "summary": "How far the player moves per finger move",
+      "unit": "%",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "hold",
+      "group": "touch",
+      "help": "FOCUS button: held, or a toggle",
+      "ja": {
+        "help": "低速（FOCUS）ボタン: 押している間だけ、または切り替え",
+        "label": "低速ボタン",
+        "summary": "押している間だけ低速か、タップで切り替えか",
+        "unit": "",
+        "words": [
+          {
+            "label": "押している間",
+            "value": "hold"
+          },
+          {
+            "label": "切り替え",
+            "value": "toggle"
+          }
+        ]
+      },
+      "key": "touch_focus",
+      "kind": {
+        "choices": [
+          "hold",
+          "toggle"
+        ],
+        "type": "enum"
+      },
+      "label": "Focus button",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "кнопка FOCUS: удерживать или переключать",
+        "label": "Кнопка фокуса",
+        "summary": "Удерживать кнопку или переключать касанием",
+        "unit": "",
+        "words": [
+          {
+            "label": "Удержание",
+            "value": "hold"
+          },
+          {
+            "label": "Переключение",
+            "value": "toggle"
+          }
+        ]
+      },
+      "summary": "Hold the button or tap to switch focus",
+      "unit": "",
+      "words": [
+        {
+          "label": "Hold",
+          "value": "hold"
+        },
+        {
+          "label": "Toggle",
+          "value": "toggle"
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "on",
+      "group": "touch",
+      "help": "auto-fire at start (in play only; the AUTO button toggles it)",
+      "ja": {
+        "help": "開始時にオートショットを有効にする（プレイ中のみ。AUTO ボタンで切り替え）",
+        "label": "オートショット",
+        "summary": "ボタンを押さなくてもショットを撃つ",
+        "unit": "",
+        "words": []
+      },
+      "key": "touch_autofire",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Auto-fire",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "автострельба при старте (только в игре; кнопка AUTO переключает её)",
+        "label": "Автострельба",
+        "summary": "Стрелять без нажатия кнопки",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Shoot without holding a button",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "50",
+      "group": "touch",
+      "help": "overlay opacity in percent",
+      "ja": {
+        "help": "オーバーレイの不透明度（パーセント）",
+        "label": "オーバーレイの不透明度 %",
+        "summary": "画面上ボタンの見えやすさ",
+        "unit": "%",
+        "words": []
+      },
+      "key": "touch_opacity",
+      "kind": {
+        "max": 100,
+        "min": 10,
+        "type": "int"
+      },
+      "label": "Overlay opacity %",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "непрозрачность сенсорных кнопок в процентах",
+        "label": "Непрозрачность кнопок, %",
+        "summary": "Насколько заметны экранные кнопки",
+        "unit": "%",
+        "words": []
+      },
+      "summary": "How visible the on-screen buttons are",
+      "unit": "%",
+      "words": []
+    },
+    {
+      "audience": "player",
+      "default": "",
+      "group": "touch",
+      "help": "overlay layout per orientation (empty = default; written by the layout editor)",
+      "ja": {
+        "help": "画面の向きごとのオーバーレイ配置（空 = 初期配置。レイアウトエディタが書き込みます）",
+        "label": "オーバーレイの配置",
+        "summary": "レイアウトエディタで決めたボタン位置",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          }
+        ]
+      },
+      "key": "touch_layout",
+      "kind": {
+        "format": "L:name,x,y,w,h,opacity,visible;…|P:…",
+        "type": "text"
+      },
+      "label": "Overlay layout",
+      "persist": true,
+      "platforms": [],
+      "ru": {
+        "help": "раскладка кнопок для каждой ориентации (пусто = по умолчанию; её записывает редактор раскладки)",
+        "label": "Раскладка кнопок",
+        "summary": "Положение кнопок из редактора раскладки",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Button positions from the layout editor",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "",
+      "group": "game_data",
+      "help": "where score.dat and replays are saved (default: the port config dir)",
+      "ja": {
+        "help": "score.dat とリプレイの保存先（初期値: 移植版の設定フォルダ）",
+        "label": "セーブフォルダ",
+        "summary": "スコアとリプレイの保存先",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          }
+        ]
+      },
+      "key": "save_dir",
+      "kind": {
+        "type": "path"
+      },
+      "label": "Save folder",
+      "persist": true,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "куда сохраняются score.dat и реплеи (по умолчанию: папка настроек порта)",
+        "label": "Папка сохранений",
+        "summary": "Куда сохраняются рекорды и реплеи",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Where scores and replays are saved",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "",
+      "group": "game_data",
+      "help": "Japanese font for dialogue text (native)",
+      "ja": {
+        "help": "会話テキスト用の日本語フォント（ネイティブ版）",
+        "label": "会話フォント",
+        "summary": "会話テキスト用の日本語フォント",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          }
+        ]
+      },
+      "key": "font",
+      "kind": {
+        "type": "file"
+      },
+      "label": "Dialogue font",
+      "persist": true,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "японский шрифт для текста диалогов (нативная версия)",
+        "label": "Шрифт диалогов",
+        "summary": "Японский шрифт для текста диалогов",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Japanese font for dialogue text",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "presentation pack to mount: a folder or .zip, or a pack id in <game folder>/packs or <config folder>/packs; empty = the pack of the game text language (texts, fonts, images only)",
+      "ja": {
+        "help": "読み込む表示パック：フォルダか .zip、または <ゲームフォルダ>/packs か <設定フォルダ>/packs 内のパック ID。空欄 = ゲームテキストの言語のパック（テキスト・フォント・画像のみ）",
+        "label": "表示パック",
+        "summary": "翻訳パックのフォルダまたは zip",
+        "unit": "",
+        "words": [
+          {
+            "label": "ゲームテキストの言語",
+            "value": ""
+          }
+        ]
+      },
+      "key": "pack",
+      "kind": {
+        "type": "path"
+      },
+      "label": "Presentation pack",
+      "persist": false,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "пакет оформления: папка или .zip либо id пакета в <папка игры>/packs или <папка настроек>/packs; пусто = пакет языка текста игры (только тексты, шрифты и картинки)",
+        "label": "Пакет оформления",
+        "summary": "Папка или zip пакета перевода",
+        "unit": "",
+        "words": [
+          {
+            "label": "По языку текста игры",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Translation pack folder or zip",
+      "unit": "",
+      "words": [
+        {
+          "label": "By game text language",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "player",
+      "default": "",
+      "group": "game_data",
+      "help": "General MIDI SoundFont (.sf2) for music mode MIDI (native; default: system soundfonts dirs)",
+      "ja": {
+        "help": "音楽を MIDI にしたときに使う General MIDI サウンドフォント (.sf2)（ネイティブ版。初期値: システムのサウンドフォントフォルダ）",
+        "label": "MIDI サウンドフォント",
+        "summary": "MIDI 音楽用のサウンドフォント",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          }
+        ]
+      },
+      "key": "soundfont",
+      "kind": {
+        "type": "file"
+      },
+      "label": "MIDI SoundFont",
+      "persist": true,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "SoundFont General MIDI (.sf2) для музыки в режиме MIDI (нативная версия; по умолчанию: системные папки SoundFont)",
+        "label": "SoundFont для MIDI",
+        "summary": "SoundFont для MIDI-музыки",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "SoundFont for MIDI music",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "start_game",
+      "help": "fixed boot RNG seed (0-65535)",
+      "ja": {
+        "help": "起動時の乱数シードを固定する (0-65535)",
+        "label": "乱数シード",
+        "summary": "起動時の乱数シードを固定",
+        "unit": "",
+        "words": [
+          {
+            "label": "ランダム",
+            "value": ""
+          }
+        ]
+      },
+      "key": "seed",
+      "kind": {
+        "max": 65535,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "RNG seed",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "фиксированное зерно ГСЧ при запуске (0-65535)",
+        "label": "Зерно ГСЧ",
+        "summary": "Фиксированное зерно случайных чисел при запуске",
+        "unit": "",
+        "words": [
+          {
+            "label": "Случайное",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Fixed random seed at boot",
+      "unit": "",
+      "words": [
+        {
+          "label": "Random",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "start_game",
+      "help": "start a game at that stage (also stageN[.std], idx:N)",
+      "ja": {
+        "help": "そのステージからゲームを開始（stageN[.std]、idx:N も可）",
+        "label": "開始ステージ",
+        "summary": "メニューを飛ばしてステージから開始",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          },
+          {
+            "label": "Stage 1",
+            "value": "1"
+          },
+          {
+            "label": "Stage 2",
+            "value": "2"
+          },
+          {
+            "label": "Stage 3",
+            "value": "3"
+          },
+          {
+            "label": "Stage 4A",
+            "value": "4a"
+          },
+          {
+            "label": "Stage 4B",
+            "value": "4b"
+          },
+          {
+            "label": "Stage 5",
+            "value": "5"
+          },
+          {
+            "label": "Final A",
+            "value": "6a"
+          },
+          {
+            "label": "Final B",
+            "value": "6b"
+          },
+          {
+            "label": "Extra",
+            "value": "ex"
+          }
+        ]
+      },
+      "key": "stage",
+      "kind": {
+        "choices": [
+          "1",
+          "2",
+          "3",
+          "4a",
+          "4b",
+          "5",
+          "6a",
+          "6b",
+          "ex"
+        ],
+        "type": "enum"
+      },
+      "label": "Start at stage",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "начать игру с этой стадии (также stageN[.std], idx:N)",
+        "label": "Начать со стадии",
+        "summary": "Пропустить меню и начать со стадии",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          },
+          {
+            "label": "Стадия 1",
+            "value": "1"
+          },
+          {
+            "label": "Стадия 2",
+            "value": "2"
+          },
+          {
+            "label": "Стадия 3",
+            "value": "3"
+          },
+          {
+            "label": "Стадия 4A",
+            "value": "4a"
+          },
+          {
+            "label": "Стадия 4B",
+            "value": "4b"
+          },
+          {
+            "label": "Стадия 5",
+            "value": "5"
+          },
+          {
+            "label": "Финал A",
+            "value": "6a"
+          },
+          {
+            "label": "Финал B",
+            "value": "6b"
+          },
+          {
+            "label": "Экстра",
+            "value": "ex"
+          }
+        ]
+      },
+      "summary": "Skip the menus and start at a stage",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        },
+        {
+          "label": "Stage 1",
+          "value": "1"
+        },
+        {
+          "label": "Stage 2",
+          "value": "2"
+        },
+        {
+          "label": "Stage 3",
+          "value": "3"
+        },
+        {
+          "label": "Stage 4A",
+          "value": "4a"
+        },
+        {
+          "label": "Stage 4B",
+          "value": "4b"
+        },
+        {
+          "label": "Stage 5",
+          "value": "5"
+        },
+        {
+          "label": "Final A",
+          "value": "6a"
+        },
+        {
+          "label": "Final B",
+          "value": "6b"
+        },
+        {
+          "label": "Extra",
+          "value": "ex"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "0",
+      "group": "start_game",
+      "help": "fast-forward the stage n frames on its first calc",
+      "ja": {
+        "help": "最初の処理でステージを n フレーム早送りする",
+        "label": "ステージ開始フレーム",
+        "summary": "ステージの途中まで早送り",
+        "unit": " フレーム",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "stage_frame",
+      "kind": {
+        "max": 4294967295,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Stage start frame",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "перемотать стадию на n кадров при первом расчёте",
+        "label": "Начальный кадр стадии",
+        "summary": "Перемотать стадию вперёд",
+        "unit": " кадр.",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Skip ahead into the stage",
+      "unit": " frames",
+      "words": [
+        {
+          "label": "Off",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "start_game",
+      "help": "shot type 0-11 or a name (reimu&yukari, ry, marisa, ...) for --stage/--ending",
+      "ja": {
+        "help": "--stage/--ending で使う自機: 0-11 または名前（reimu&yukari、ry、marisa など）",
+        "label": "自機",
+        "summary": "ステージやエンディングを直接始めるときの自機",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          },
+          {
+            "label": "霊夢＆紫（幻想の結界チーム）",
+            "value": "reimu&yukari"
+          },
+          {
+            "label": "魔理沙＆アリス（禁呪の詠唱チーム）",
+            "value": "marisa&alice"
+          },
+          {
+            "label": "咲夜＆レミリア（夢幻の紅魔チーム）",
+            "value": "sakuya&remilia"
+          },
+          {
+            "label": "妖夢＆幽々子（幽冥の住人チーム）",
+            "value": "youmu&yuyuko"
+          },
+          {
+            "label": "博麗 霊夢",
+            "value": "reimu"
+          },
+          {
+            "label": "八雲 紫",
+            "value": "yukari"
+          },
+          {
+            "label": "霧雨 魔理沙",
+            "value": "marisa"
+          },
+          {
+            "label": "アリス・マーガトロイド",
+            "value": "alice"
+          },
+          {
+            "label": "十六夜 咲夜",
+            "value": "sakuya"
+          },
+          {
+            "label": "レミリア・スカーレット",
+            "value": "remilia"
+          },
+          {
+            "label": "魂魄 妖夢",
+            "value": "youmu"
+          },
+          {
+            "label": "西行寺 幽々子",
+            "value": "yuyuko"
+          }
+        ]
+      },
+      "key": "player",
+      "kind": {
+        "choices": [
+          "reimu&yukari",
+          "marisa&alice",
+          "sakuya&remilia",
+          "youmu&yuyuko",
+          "reimu",
+          "yukari",
+          "marisa",
+          "alice",
+          "sakuya",
+          "remilia",
+          "youmu",
+          "yuyuko"
+        ],
+        "type": "enum"
+      },
+      "label": "Shot type",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "тип стрельбы для --stage/--ending: 0-11 или имя (reimu&yukari, ry, marisa, ...)",
+        "label": "Тип стрельбы",
+        "summary": "Персонажи для прямого старта стадии или концовки",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          },
+          {
+            "label": "Рейму и Юкари",
+            "value": "reimu&yukari"
+          },
+          {
+            "label": "Мариса и Алиса",
+            "value": "marisa&alice"
+          },
+          {
+            "label": "Сакуя и Ремилия",
+            "value": "sakuya&remilia"
+          },
+          {
+            "label": "Ёму и Ююко",
+            "value": "youmu&yuyuko"
+          },
+          {
+            "label": "Рейму",
+            "value": "reimu"
+          },
+          {
+            "label": "Юкари",
+            "value": "yukari"
+          },
+          {
+            "label": "Мариса",
+            "value": "marisa"
+          },
+          {
+            "label": "Алиса",
+            "value": "alice"
+          },
+          {
+            "label": "Сакуя",
+            "value": "sakuya"
+          },
+          {
+            "label": "Ремилия",
+            "value": "remilia"
+          },
+          {
+            "label": "Ёму",
+            "value": "youmu"
+          },
+          {
+            "label": "Ююко",
+            "value": "yuyuko"
+          }
+        ]
+      },
+      "summary": "Shot type for a direct stage or ending start",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        },
+        {
+          "label": "Reimu & Yukari",
+          "value": "reimu&yukari"
+        },
+        {
+          "label": "Marisa & Alice",
+          "value": "marisa&alice"
+        },
+        {
+          "label": "Sakuya & Remilia",
+          "value": "sakuya&remilia"
+        },
+        {
+          "label": "Youmu & Yuyuko",
+          "value": "youmu&yuyuko"
+        },
+        {
+          "label": "Reimu",
+          "value": "reimu"
+        },
+        {
+          "label": "Yukari",
+          "value": "yukari"
+        },
+        {
+          "label": "Marisa",
+          "value": "marisa"
+        },
+        {
+          "label": "Alice",
+          "value": "alice"
+        },
+        {
+          "label": "Sakuya",
+          "value": "sakuya"
+        },
+        {
+          "label": "Remilia",
+          "value": "remilia"
+        },
+        {
+          "label": "Youmu",
+          "value": "youmu"
+        },
+        {
+          "label": "Yuyuko",
+          "value": "yuyuko"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "start_game",
+      "help": "difficulty for --stage/--ending (also e/n/h/l/x, 0-4)",
+      "ja": {
+        "help": "--stage/--ending の難易度（e/n/h/l/x、0-4 も可）",
+        "label": "難易度",
+        "summary": "ステージやエンディングを直接始めるときの難易度",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          },
+          {
+            "label": "Easy",
+            "value": "easy"
+          },
+          {
+            "label": "Normal",
+            "value": "normal"
+          },
+          {
+            "label": "Hard",
+            "value": "hard"
+          },
+          {
+            "label": "Lunatic",
+            "value": "lunatic"
+          },
+          {
+            "label": "Extra",
+            "value": "extra"
+          }
+        ]
+      },
+      "key": "rank",
+      "kind": {
+        "choices": [
+          "easy",
+          "normal",
+          "hard",
+          "lunatic",
+          "extra"
+        ],
+        "type": "enum"
+      },
+      "label": "Difficulty",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "сложность для --stage/--ending (также e/n/h/l/x, 0-4)",
+        "label": "Сложность",
+        "summary": "Сложность для прямого старта стадии или концовки",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          },
+          {
+            "label": "Easy",
+            "value": "easy"
+          },
+          {
+            "label": "Normal",
+            "value": "normal"
+          },
+          {
+            "label": "Hard",
+            "value": "hard"
+          },
+          {
+            "label": "Lunatic",
+            "value": "lunatic"
+          },
+          {
+            "label": "Extra",
+            "value": "extra"
+          }
+        ]
+      },
+      "summary": "Difficulty for a direct stage or ending start",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        },
+        {
+          "label": "Easy",
+          "value": "easy"
+        },
+        {
+          "label": "Normal",
+          "value": "normal"
+        },
+        {
+          "label": "Hard",
+          "value": "hard"
+        },
+        {
+          "label": "Lunatic",
+          "value": "lunatic"
+        },
+        {
+          "label": "Extra",
+          "value": "extra"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "start_game",
+      "help": "player power at the first stage",
+      "ja": {
+        "help": "最初のステージでの自機のパワー",
+        "label": "開始時のパワー",
+        "summary": "最初のステージでのパワー",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          }
+        ]
+      },
+      "key": "power",
+      "kind": {
+        "max": 128,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Starting power",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "мощь персонажа на первой стадии",
+        "label": "Начальная мощь",
+        "summary": "Мощь персонажа на первой стадии",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Player power at the first stage",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "0",
+      "group": "start_game",
+      "help": "continues used, for --ending",
+      "ja": {
+        "help": "使用したコンティニュー回数（--ending 用）",
+        "label": "使用コンティニュー数",
+        "summary": "エンディング開始時に数えるコンティニュー回数",
+        "unit": "",
+        "words": [
+          {
+            "label": "なし",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "continues",
+      "kind": {
+        "max": 255,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Continues used",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "сколько продолжений использовано, для --ending",
+        "label": "Использовано продолжений",
+        "summary": "Продолжения, учтённые при старте концовки",
+        "unit": "",
+        "words": [
+          {
+            "label": "Нет",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Continues counted when an ending starts",
+      "unit": "",
+      "words": [
+        {
+          "label": "None",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "start_game",
+      "help": "start an ending: <shot><a|b|c> (bad / good 6A / good 6B) or a .end file",
+      "ja": {
+        "help": "エンディングを開始: <shot><a|b|c>（バッド / 6A グッド / 6B グッド）または .end ファイル",
+        "label": "エンディング再生",
+        "summary": "エンディングを直接見る",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "ending",
+      "kind": {
+        "format": "<shot><a|b|c> | FILE.end",
+        "type": "text"
+      },
+      "label": "Play ending",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "запустить концовку: <shot><a|b|c> (плохая / хорошая 6A / хорошая 6B) или файл .end",
+        "label": "Показать концовку",
+        "summary": "Сразу посмотреть концовку",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Watch an ending directly",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "start_game",
+      "help": "play a replay file or an attract demo",
+      "ja": {
+        "help": "リプレイファイルまたはデモプレイを再生",
+        "label": "リプレイ再生",
+        "summary": "リプレイファイルかデモを再生",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "replay",
+      "kind": {
+        "format": "FILE | demo0-3",
+        "type": "text"
+      },
+      "label": "Play replay",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "воспроизвести файл реплея или демонстрацию",
+        "label": "Воспроизвести реплей",
+        "summary": "Воспроизвести файл реплея или демо",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Play a replay file or a demo",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "0",
+      "group": "start_game",
+      "help": "replay playback speed",
+      "ja": {
+        "help": "リプレイの再生速度",
+        "label": "リプレイ速度",
+        "summary": "そのリプレイの再生速度",
+        "unit": "",
+        "words": [
+          {
+            "label": "通常",
+            "value": "0"
+          },
+          {
+            "label": "スロー",
+            "value": "1"
+          },
+          {
+            "label": "早送り",
+            "value": "2"
+          }
+        ]
+      },
+      "key": "replay_speed",
+      "kind": {
+        "max": 2,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Replay speed",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "скорость воспроизведения реплея",
+        "label": "Скорость реплея",
+        "summary": "Скорость воспроизведения этого реплея",
+        "unit": "",
+        "words": [
+          {
+            "label": "Обычная",
+            "value": "0"
+          },
+          {
+            "label": "Замедленная",
+            "value": "1"
+          },
+          {
+            "label": "Ускоренная",
+            "value": "2"
+          }
+        ]
+      },
+      "summary": "Playback speed of that replay",
+      "unit": "",
+      "words": [
+        {
+          "label": "Normal",
+          "value": "0"
+        },
+        {
+          "label": "Slowdown",
+          "value": "1"
+        },
+        {
+          "label": "Fast",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "1",
+      "group": "start_game",
+      "help": "port replay transport rate at the start of playback (F7 / F8 change it while it plays)",
+      "ja": {
+        "help": "ポートのリプレイ再生倍率の初期値（再生中は F7 / F8 で変更）",
+        "label": "リプレイ再生倍率",
+        "summary": "リプレイを始める時の再生倍率",
+        "unit": "×",
+        "words": [
+          {
+            "label": "¼×",
+            "value": "1/4"
+          },
+          {
+            "label": "½×",
+            "value": "1/2"
+          },
+          {
+            "label": "1×",
+            "value": "1"
+          },
+          {
+            "label": "2×",
+            "value": "2"
+          },
+          {
+            "label": "4×",
+            "value": "4"
+          },
+          {
+            "label": "8×",
+            "value": "8"
+          }
+        ]
+      },
+      "key": "replay_rate",
+      "kind": {
+        "choices": [
+          "1/4",
+          "1/2",
+          "1",
+          "2",
+          "4",
+          "8"
+        ],
+        "type": "enum"
+      },
+      "label": "Replay rate",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "начальный темп воспроизведения реплея в порте (во время показа меняется F7 / F8)",
+        "label": "Темп реплея",
+        "summary": "С каким темпом порт начинает реплей",
+        "unit": "×",
+        "words": [
+          {
+            "label": "¼×",
+            "value": "1/4"
+          },
+          {
+            "label": "½×",
+            "value": "1/2"
+          },
+          {
+            "label": "1×",
+            "value": "1"
+          },
+          {
+            "label": "2×",
+            "value": "2"
+          },
+          {
+            "label": "4×",
+            "value": "4"
+          },
+          {
+            "label": "8×",
+            "value": "8"
+          }
+        ]
+      },
+      "summary": "Port playback rate a replay starts at",
+      "unit": "×",
+      "words": [
+        {
+          "label": "¼×",
+          "value": "1/4"
+        },
+        {
+          "label": "½×",
+          "value": "1/2"
+        },
+        {
+          "label": "1×",
+          "value": "1"
+        },
+        {
+          "label": "2×",
+          "value": "2"
+        },
+        {
+          "label": "4×",
+          "value": "4"
+        },
+        {
+          "label": "8×",
+          "value": "8"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "save the recording to that replay slot when the game ends",
+      "ja": {
+        "help": "ゲーム終了時に記録をそのリプレイスロットに保存",
+        "label": "リプレイ保存スロット",
+        "summary": "ゲーム終了時に記録を保存",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "replay_save",
+      "kind": {
+        "max": 15,
+        "min": 1,
+        "type": "int"
+      },
+      "label": "Save replay to slot",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "сохранить запись в этот слот реплея по окончании игры",
+        "label": "Сохранить реплей в слот",
+        "summary": "Сохранить запись по окончании игры",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Save the recording when the game ends",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "input script file or inline `frames:mask,...`",
+      "ja": {
+        "help": "入力スクリプトファイル、または直接 `frames:mask,...`",
+        "label": "入力スクリプト",
+        "summary": "スクリプトによるボタン入力",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "input",
+      "kind": {
+        "format": "FILE | frames:mask,...",
+        "type": "text"
+      },
+      "label": "Input script",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "файл сценария ввода или строка `frames:mask,...`",
+        "label": "Сценарий ввода",
+        "summary": "Нажатия кнопок по сценарию",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Scripted button presses",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "cheats",
+      "help": "the player can't die",
+      "ja": {
+        "help": "自機がやられなくなる",
+        "label": "無敵",
+        "summary": "自機がやられない",
+        "unit": "",
+        "words": []
+      },
+      "key": "invuln",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Invulnerable",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "персонаж не может погибнуть",
+        "label": "Неуязвимость",
+        "summary": "Персонаж не может погибнуть",
+        "unit": "",
+        "words": []
+      },
+      "summary": "The player can't die",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "cheats",
+      "help": "unlock everything in the menus",
+      "ja": {
+        "help": "メニューの項目をすべて解放する",
+        "label": "すべて解放",
+        "summary": "メニューの項目をすべて解放",
+        "unit": "",
+        "words": []
+      },
+      "key": "unlock",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Unlock everything",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "открыть все пункты меню",
+        "label": "Открыть всё",
+        "summary": "Открыть всё в меню",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Unlock everything in the menus",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "0",
+      "group": "cheats",
+      "help": "damage per frame to every on-screen shootable enemy",
+      "ja": {
+        "help": "画面内の撃てる敵すべてに毎フレーム与えるダメージ",
+        "label": "毎フレームの敵ダメージ",
+        "summary": "すべての敵に毎フレーム与えるダメージ",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "enemy_dmg",
+      "kind": {
+        "max": 2147483647,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Enemy damage per frame",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "урон за кадр всем уязвимым врагам на экране",
+        "label": "Урон врагам за кадр",
+        "summary": "Урон каждому врагу в каждом кадре",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Damage dealt to every enemy each frame",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "cheats",
+      "help": "force the bomb index (4 = dissolve spell)",
+      "ja": {
+        "help": "ボム番号を固定する（4 = ディゾルブスペル）",
+        "label": "ボム固定",
+        "summary": "すべての自機でこのボムを使う",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          },
+          {
+            "label": "ディゾルブスペル",
+            "value": "4"
+          }
+        ]
+      },
+      "key": "bomb",
+      "kind": {
+        "max": 4,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Force bomb",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "принудительный номер бомбы (4 = Dissolve Spell)",
+        "label": "Принудительная бомба",
+        "summary": "Эта бомба для любого типа стрельбы",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          },
+          {
+            "label": "Dissolve Spell",
+            "value": "4"
+          }
+        ]
+      },
+      "summary": "Use this bomb for every shot type",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        },
+        {
+          "label": "Dissolve spell",
+          "value": "4"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "cheats",
+      "help": "set that shot's clear masks on every difficulty",
+      "ja": {
+        "help": "その自機のクリアフラグを全難易度に設定する",
+        "label": "クリアフラグ",
+        "summary": "自機をクリア済みにする",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "clrd",
+      "kind": {
+        "format": "SHOT,ANY[,NC]",
+        "type": "text"
+      },
+      "label": "Clear masks",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "установить маски прохождения этого типа стрельбы на всех сложностях",
+        "label": "Маски прохождения",
+        "summary": "Отметить тип стрельбы как пройденный",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Mark a shot type as cleared",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "cheats",
+      "help": "queue screen effect T at game frame F",
+      "ja": {
+        "help": "ゲームフレーム F で画面エフェクト T を予約する",
+        "label": "画面エフェクト",
+        "summary": "指定フレームで画面エフェクトを再生",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "screen_fx",
+      "kind": {
+        "format": "F:T,P0,P1,P2,P3",
+        "type": "text"
+      },
+      "label": "Screen effect",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "поставить эффект экрана T в очередь на игровом кадре F",
+        "label": "Эффект экрана",
+        "summary": "Запустить эффект экрана в заданном кадре",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Play a screen effect at a frame",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "save /tmp/th08_shot.png at that frame and exit (web: freeze)",
+      "ja": {
+        "help": "そのフレームで /tmp/th08_shot.png を保存して終了（Web 版: 停止）",
+        "label": "スクリーンショットのフレーム",
+        "summary": "指定フレームでスクリーンショットを保存して終了",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "shot",
+      "kind": {
+        "max": 9223372036854775807,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Screenshot at frame",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "сохранить /tmp/th08_shot.png на этом кадре и выйти (веб: остановка)",
+        "label": "Скриншот на кадре",
+        "summary": "Сохранить скриншот на кадре и выйти",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Save a screenshot at a frame and quit",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "send --shot through the window's scaling blit at that size",
+      "ja": {
+        "help": "--shot をウィンドウの拡大転送を通してこのサイズで撮る",
+        "label": "スクリーンショットのサイズ",
+        "summary": "そのスクリーンショットのサイズ",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          }
+        ]
+      },
+      "key": "shot_size",
+      "kind": {
+        "format": "WxH",
+        "type": "text"
+      },
+      "label": "Screenshot size",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "снимать --shot через масштабирующий вывод окна в этом размере",
+        "label": "Размер скриншота",
+        "summary": "Размер этого скриншота",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Size of that screenshot",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "tools",
+      "help": "the mouse acts as one finger and the touch overlay is shown (test touch without a phone)",
+      "ja": {
+        "help": "マウスを 1 本の指として扱い、タッチオーバーレイを表示する（端末なしでタッチを試す）",
+        "label": "マウスをタッチとして使う",
+        "summary": "マウスを指として使う",
+        "unit": "",
+        "words": []
+      },
+      "key": "touch_mouse",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Mouse as touch",
+      "persist": false,
+      "platforms": [
+        "desktop"
+      ],
+      "ru": {
+        "help": "мышь работает как один палец, и показываются сенсорные кнопки (проверка касаний без телефона)",
+        "label": "Мышь как касание",
+        "summary": "Использовать мышь как палец",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Use the mouse as a finger",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "0",
+      "group": "tools",
+      "help": "N logic frames per drawn frame, no frame pacing",
+      "ja": {
+        "help": "描画 1 フレームごとに N フレーム処理する。フレームレート制御なし",
+        "label": "ターボ",
+        "summary": "描画 1 フレームあたりの処理フレーム数",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": "0"
+          }
+        ]
+      },
+      "key": "turbo",
+      "kind": {
+        "max": 4294967295,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Turbo",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "N кадров логики на отрисованный кадр, без ограничения темпа",
+        "label": "Турбо",
+        "summary": "Кадров логики на один отрисованный кадр",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": "0"
+          }
+        ]
+      },
+      "summary": "Logic frames per drawn frame",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "draw that ANM slot's sprites in a grid",
+      "ja": {
+        "help": "その ANM スロットのスプライトを格子状に描く",
+        "label": "ANM スロットテスト",
+        "summary": "スプライトシート 1 枚を格子状に表示",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "slot_test",
+      "kind": {
+        "max": 2147483647,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "ANM slot test",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "нарисовать спрайты этого слота ANM сеткой",
+        "label": "Тест слота ANM",
+        "summary": "Показать один лист спрайтов сеткой",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Show one sprite sheet in a grid",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "run ANM scripts live instead of the game",
+      "ja": {
+        "help": "ゲームの代わりに ANM スクリプトを実行する",
+        "label": "ANM ビューア",
+        "summary": "ゲームの代わりにアニメーションスクリプトを実行",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "anm",
+      "kind": {
+        "format": "FILE:SCRIPTS[:pf]",
+        "type": "text"
+      },
+      "label": "ANM viewer",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "выполнять скрипты ANM вместо игры",
+        "label": "Просмотр ANM",
+        "summary": "Запускать скрипты анимации вместо игры",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Run animation scripts instead of the game",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "--anm interrupts at those frames",
+      "ja": {
+        "help": "--anm でそのフレームに割り込みを送る",
+        "label": "ANM 割り込み",
+        "summary": "指定フレームでのアニメーション割り込み",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "anm_int",
+      "kind": {
+        "format": "F:ID,...",
+        "type": "text"
+      },
+      "label": "ANM interrupts",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "прерывания --anm на этих кадрах",
+        "label": "Прерывания ANM",
+        "summary": "Прерывания анимации на заданных кадрах",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Animation interrupts at frames",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "--anm VM i at (x + i*dx, y)",
+      "ja": {
+        "help": "--anm の VM i を (x + i*dx, y) に置く",
+        "label": "ANM 表示位置",
+        "summary": "アニメーションを描く位置",
+        "unit": "",
+        "words": [
+          {
+            "label": "初期設定",
+            "value": ""
+          }
+        ]
+      },
+      "key": "anm_pos",
+      "kind": {
+        "format": "X,Y[,DX]",
+        "type": "text"
+      },
+      "label": "ANM positions",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "VM i для --anm в точке (x + i*dx, y)",
+        "label": "Позиции ANM",
+        "summary": "Где рисуются анимации",
+        "unit": "",
+        "words": [
+          {
+            "label": "По умолчанию",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Where the animations are drawn",
+      "unit": "",
+      "words": [
+        {
+          "label": "Default",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "--anm forced draw mode",
+      "ja": {
+        "help": "--anm の描画モードを固定する",
+        "label": "ANM 描画モード",
+        "summary": "アニメーションの描画モードを固定",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "anm_mode",
+      "kind": {
+        "max": 2147483647,
+        "min": -2147483648,
+        "type": "int"
+      },
+      "label": "ANM draw mode",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "принудительный режим отрисовки для --anm",
+        "label": "Режим отрисовки ANM",
+        "summary": "Принудительный режим отрисовки анимаций",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Forced draw mode for the animations",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "tools",
+      "help": "log each frame's flushed sound effect ids",
+      "ja": {
+        "help": "フレームごとに鳴らした効果音 ID を記録する",
+        "label": "効果音ログ",
+        "summary": "毎フレームの効果音を記録",
+        "unit": "",
+        "words": []
+      },
+      "key": "se_log",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Log sound effects",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "записывать ID звуковых эффектов, выведенных в каждом кадре",
+        "label": "Журнал звуковых эффектов",
+        "summary": "Записывать звуковые эффекты каждого кадра",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Log the sound effects of each frame",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "write a plain-text draw log: <path>[,from-to] (.xz logs: session / drawrun tools)",
+      "ja": {
+        "help": "テキスト形式の描画ログを書く: <path>[,from-to]（.xz ログは session / drawrun ツール）",
+        "label": "描画ログ",
+        "summary": "すべての描画をテキストで記録",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "drawlog",
+      "kind": {
+        "format": "PATH[,A-B | ,dA-B]",
+        "type": "text"
+      },
+      "label": "Draw log",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "web"
+      ],
+      "ru": {
+        "help": "писать текстовый журнал отрисовки: <path>[,from-to] (журналы .xz — инструменты session / drawrun)",
+        "label": "Журнал отрисовки",
+        "summary": "Текстовый журнал всей отрисовки",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Write a text log of every draw",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "tests: result-screen screenshots at those frames",
+      "ja": {
+        "help": "テスト用: そのフレームでリザルト画面のスクリーンショットを撮る",
+        "label": "リザルト画面のスクリーンショット",
+        "summary": "テスト用のリザルト画面スクリーンショット",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "result_shots",
+      "kind": {
+        "format": "K,...",
+        "type": "text"
+      },
+      "label": "Result screenshots",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "тесты: скриншоты экрана итогов на этих кадрах",
+        "label": "Скриншоты экрана итогов",
+        "summary": "Скриншоты экрана итогов для тестов",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Result screen screenshots for tests",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "4000",
+      "group": "tools",
+      "help": "tests: frames per shot type in the scripted player test",
+      "ja": {
+        "help": "テスト用: スクリプトによる自機テストでの自機ごとのフレーム数",
+        "label": "自機ごとのテストフレーム数",
+        "summary": "自機テストでの自機ごとのフレーム数",
+        "unit": " フレーム",
+        "words": []
+      },
+      "key": "test_frames",
+      "kind": {
+        "max": 4294967295,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Test frames per shot",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "тесты: кадров на тип стрельбы в скриптовом тесте персонажа",
+        "label": "Кадров теста на тип",
+        "summary": "Кадров на тип стрельбы в тесте персонажа",
+        "unit": " кадр.",
+        "words": []
+      },
+      "summary": "Frames per shot type in the player test",
+      "unit": " frames",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "session tool: RNG call sites of that menu frame",
+      "ja": {
+        "help": "セッションツール: そのメニューフレームの乱数呼び出し元",
+        "label": "セッション乱数呼び出し",
+        "summary": "メニューフレームでの乱数呼び出しを記録",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "session_rng",
+      "kind": {
+        "max": 9223372036854775807,
+        "min": -9223372036854775808,
+        "type": "int"
+      },
+      "label": "Session RNG sites",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "инструмент сессий: места вызова ГСЧ в этом кадре меню",
+        "label": "Вызовы ГСЧ сессии",
+        "summary": "Записать вызовы ГСЧ в кадре меню",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Log random calls of a menu frame",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "session tool: player and items after each calc of menu frames A..B",
+      "ja": {
+        "help": "セッションツール: メニューフレーム A..B の各処理後の自機とアイテム",
+        "label": "セッションダンプ",
+        "summary": "メニューフレーム間の自機とアイテムを記録",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "session_dump",
+      "kind": {
+        "format": "A-B",
+        "type": "text"
+      },
+      "label": "Session dump",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "инструмент сессий: персонаж и предметы после каждого расчёта кадров меню A..B",
+        "label": "Дамп сессии",
+        "summary": "Записать персонажа и предметы в кадрах меню",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Log player and items over menu frames",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "tools",
+      "help": "session tool: also dump player bullets",
+      "ja": {
+        "help": "セッションツール: 自機弾もダンプする",
+        "label": "セッション自機弾",
+        "summary": "自機弾も記録",
+        "unit": "",
+        "words": []
+      },
+      "key": "session_pb",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Session player bullets",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "инструмент сессий: также выводить пули персонажа",
+        "label": "Пули персонажа в сессии",
+        "summary": "Записывать и пули персонажа",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Also log player bullets",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "tools",
+      "help": "demosync tool: enemies and bullets per frame",
+      "ja": {
+        "help": "demosync ツール: フレームごとの敵と弾",
+        "label": "弾ダンプ",
+        "summary": "毎フレームの敵と弾を記録",
+        "unit": "",
+        "words": []
+      },
+      "key": "bdump",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Bullet dump",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "инструмент demosync: враги и пули по кадрам",
+        "label": "Дамп пуль",
+        "summary": "Записывать врагов и пули каждого кадра",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Log enemies and bullets each frame",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "tools",
+      "help": "demosync tool: player and items per frame",
+      "ja": {
+        "help": "demosync ツール: フレームごとの自機とアイテム",
+        "label": "アイテムダンプ",
+        "summary": "毎フレームの自機とアイテムを記録",
+        "unit": "",
+        "words": []
+      },
+      "key": "idump",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Item dump",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "инструмент demosync: персонаж и предметы по кадрам",
+        "label": "Дамп предметов",
+        "summary": "Записывать персонажа и предметы каждого кадра",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Log player and items each frame",
+      "unit": "",
+      "words": []
+    },
+    {
+      "audience": "dev",
+      "default": "",
+      "group": "tools",
+      "help": "demosync tool: effects of that type per frame",
+      "ja": {
+        "help": "demosync ツール: フレームごとのその種類のエフェクト",
+        "label": "エフェクトダンプ",
+        "summary": "毎フレームの指定種類のエフェクトを記録",
+        "unit": "",
+        "words": [
+          {
+            "label": "オフ",
+            "value": ""
+          }
+        ]
+      },
+      "key": "edump",
+      "kind": {
+        "max": 255,
+        "min": 0,
+        "type": "int"
+      },
+      "label": "Effect dump",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "инструмент demosync: эффекты этого типа по кадрам",
+        "label": "Дамп эффектов",
+        "summary": "Записывать эффекты одного типа каждого кадра",
+        "unit": "",
+        "words": [
+          {
+            "label": "Выкл.",
+            "value": ""
+          }
+        ]
+      },
+      "summary": "Log effects of one type each frame",
+      "unit": "",
+      "words": [
+        {
+          "label": "Off",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "audience": "dev",
+      "default": "off",
+      "group": "tools",
+      "help": "tests: print every parsed .sht file",
+      "ja": {
+        "help": "テスト用: 読み込んだ .sht ファイルをすべて表示する",
+        "label": "ショットファイルダンプ",
+        "summary": "読み込んだショットファイルをすべて表示",
+        "unit": "",
+        "words": []
+      },
+      "key": "sht_dump",
+      "kind": {
+        "type": "bool"
+      },
+      "label": "Shot file dump",
+      "persist": false,
+      "platforms": [
+        "desktop",
+        "android"
+      ],
+      "ru": {
+        "help": "тесты: вывести все разобранные файлы .sht",
+        "label": "Дамп файлов стрельбы",
+        "summary": "Вывести все разобранные файлы стрельбы",
+        "unit": "",
+        "words": []
+      },
+      "summary": "Print every parsed shot file",
+      "unit": "",
+      "words": []
+    }
+  ],
+  "groups": [
+    {
+      "id": "game_data",
+      "ja": {
+        "title": "ゲームデータ"
+      },
+      "ru": {
+        "title": "Данные игры"
+      },
+      "title": "Game data"
+    },
+    {
+      "id": "language",
+      "ja": {
+        "title": "言語"
+      },
+      "ru": {
+        "title": "Язык"
+      },
+      "title": "Language"
+    },
+    {
+      "id": "display",
+      "ja": {
+        "title": "画面"
+      },
+      "ru": {
+        "title": "Экран"
+      },
+      "title": "Display"
+    },
+    {
+      "id": "sound",
+      "ja": {
+        "title": "サウンド"
+      },
+      "ru": {
+        "title": "Звук"
+      },
+      "title": "Sound"
+    },
+    {
+      "id": "accessibility",
+      "ja": {
+        "title": "アクセシビリティ"
+      },
+      "ru": {
+        "title": "Специальные возможности"
+      },
+      "title": "Accessibility"
+    },
+    {
+      "id": "touch",
+      "ja": {
+        "title": "タッチ操作"
+      },
+      "ru": {
+        "title": "Сенсорное управление"
+      },
+      "title": "Touch controls"
+    },
+    {
+      "id": "start_game",
+      "ja": {
+        "title": "ゲーム開始"
+      },
+      "ru": {
+        "title": "Запуск игры"
+      },
+      "title": "Start game"
+    },
+    {
+      "id": "cheats",
+      "ja": {
+        "title": "チート／デバッグ"
+      },
+      "ru": {
+        "title": "Читы и отладка"
+      },
+      "title": "Cheats/debug"
+    },
+    {
+      "id": "tools",
+      "ja": {
+        "title": "録画／ツール"
+      },
+      "ru": {
+        "title": "Запись и инструменты"
+      },
+      "title": "Recording/tools"
+    }
+  ],
+  "languages": [
+    "ja",
+    "en",
+    "ru"
+  ],
+  "version": 3
+}

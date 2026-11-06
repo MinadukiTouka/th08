@@ -38,6 +38,12 @@ gradle.bat -p android assembleRelease `
   runs out of heap (the APK gets larger).
 - `-Pth08.profile=dev` builds `libth08.so` without optimizations (slow game); keep
   `release`.
+- `-Pth08.schemaFile=tools/android/settings_schema.json` copies the committed settings
+  schema instead of running `cargo run -p th08-tools` for the host. That host build
+  compiles the whole game (wgpu, winit, ...) and needs a lot of RAM; the committed
+  file is the schema of this game version and is regenerated with
+  `cargo run -q --release -p th08-tools --bin settings_schema -- <out>` when the host
+  can afford it.
 
 ## Fork notes
 
