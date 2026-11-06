@@ -138,7 +138,7 @@ help = "この画面と移植版メニューの言語: auto（システムの言
 auto = "システムの言語"
 ja = "日本語"
 en = "English"
-ru = "Русский"
+ru = "中文"
 
 [entry.scale]
 label = "ウィンドウサイズ"

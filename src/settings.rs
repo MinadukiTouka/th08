@@ -519,7 +519,7 @@ pub const ENTRIES: &[Entry] = &[
             ("auto", "System"),
             ("ja", "日本語"),
             ("en", "English"),
-            ("ru", "Русский"),
+            ("ru", "中文"),
         ],
         audience: Audience::Player,
         platforms: Platforms::ALL,
