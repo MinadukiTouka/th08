@@ -1,5 +1,5 @@
 // Launcher update check: the Rust side (libth08, update.rs) asks GitHub at most once a day in the release channel.
-package org.th08.port
+package com.zun.th08
 
 import org.json.JSONObject
 

@@ -1,5 +1,5 @@
 // System gesture exclusion rects of the game's NativeActivity, called from Rust (platform/gestures.rs).
-package org.th08.port
+package com.zun.th08
 
 import android.app.Activity
 import android.graphics.Rect

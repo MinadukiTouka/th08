@@ -400,7 +400,7 @@ pub mod bridge {
 
     #[cfg(target_os = "android")]
     #[unsafe(no_mangle)]
-    pub extern "system" fn Java_org_th08_port_Packs_call<'c>(
+    pub extern "system" fn Java_com_zun_th08_Packs_call<'c>(
         mut env: jni::EnvUnowned<'c>,
         _class: jni::objects::JClass<'c>,
         req: jni::objects::JString<'c>,

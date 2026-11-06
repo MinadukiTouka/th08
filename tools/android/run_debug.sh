@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 SDK=${ANDROID_SDK:-$HOME/.local/share/android-sdk/Sdk}
-PKG=org.th08.port.debug
+PKG=com.zun.th08.debug
 OUT=target/android
 EMU_PORT=${EMU_PORT:-5584}
 EMU_SERIAL=emulator-$EMU_PORT
@@ -16,7 +16,7 @@ mkdir -p "$OUT"
 
 abi_of() { case $1 in aarch64) echo arm64-v8a ;; x86_64) echo x86_64 ;; *) echo "unknown target $1" >&2; exit 1 ;; esac; }
 
-# Debug channel (org.th08.port.debug) through cargo xtask dist; DATA=DIR bundles the game files.
+# Debug channel (com.zun.th08.debug) through cargo xtask dist; DATA=DIR bundles the game files.
 build() {
   local abis=() a
   for a in $TARGETS; do abis+=(--abi "$(abi_of "$a")"); done
@@ -49,7 +49,7 @@ install() { emu_adb install -r "$OUT/th08-debug.apk"; }
 
 run() {
   emu_adb logcat -c
-  emu_adb shell am start -n "$PKG/org.th08.port.LauncherActivity"
+  emu_adb shell am start -n "$PKG/com.zun.th08.LauncherActivity"
   sleep "${RUN_WAIT:-15}"
   emu_adb logcat -d > "$OUT/logcat.txt"
   grep -E "th08|NativeActivity|wgpu|panic|FATAL" "$OUT/logcat.txt" | tail -40 || true

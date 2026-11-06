@@ -1,6 +1,6 @@
 // Save backup on the settings screen: the Rust zip export / import (libth08, saves.rs `bridge`) behind one JSON call,
 // with the picked document copied through a file in the app cache (Storage Access Framework, no permission).
-package org.th08.port
+package com.zun.th08
 
 import org.json.JSONObject
 

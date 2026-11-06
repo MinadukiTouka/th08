@@ -24,7 +24,7 @@ mod android {
     use jni::refs::LoaderContext;
     use jni::{jni_sig, jni_str};
 
-    // org.th08.port.GestureExclusion.set(activity, rects): the decor view's rects, set on the UI thread.
+    // com.zun.th08.GestureExclusion.set(activity, rects): the decor view's rects, set on the UI thread.
     pub fn set(rects: &[[i32; 4]]) -> Option<()> {
         crate::platform::safearea::with_activity(|env, act| {
             let flat: Vec<i32> = rects.iter().flatten().copied().collect();
@@ -42,7 +42,7 @@ mod android {
             let loader = env.cast_local::<JClassLoader>(loader)?;
             let class = LoaderContext::Loader(&loader).load_class(
                 env,
-                jni_str!("org.th08.port.GestureExclusion"),
+                jni_str!("com.zun.th08.GestureExclusion"),
                 false,
             )?;
             env.call_static_method(

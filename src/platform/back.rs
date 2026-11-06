@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 static PENDING: AtomicU32 = AtomicU32::new(0);
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 
-// Binds org.th08.port.BackBridge.nativeBack (UI thread): each call counts one Back and wakes the event loop.
+// Binds com.zun.th08.BackBridge.nativeBack (UI thread): each call counts one Back and wakes the event loop.
 #[cfg(target_os = "android")]
 pub fn bind(app: &winit::platform::android::activity::AndroidApp) {
     if android::WAKER.set(app.create_waker()).is_ok() && android::register().is_none() {
@@ -54,7 +54,7 @@ mod android {
             let loader = env.cast_local::<JClassLoader>(loader)?;
             let class = LoaderContext::Loader(&loader).load_class(
                 env,
-                jni_str!("org.th08.port.BackBridge"),
+                jni_str!("com.zun.th08.BackBridge"),
                 false,
             )?;
             // SAFETY: `native_back` is `static void nativeBack()`: (JNIEnv*, jclass) -> void.

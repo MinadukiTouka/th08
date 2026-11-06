@@ -2,7 +2,7 @@
 // Inputs as -P properties (`cargo xtask dist --target android-apk` sets them, xtask/src/android.rs):
 //   th08.abis       comma list, arm64-v8a (default) / x86_64     th08.data      folder with th08.pak + thbgm.pak
 //                                                                                (preferred) or th08.dat + thbgm.dat
-//   th08.channel    release | dev (default) | debug: applicationId org.th08.port[.dev|.debug] and app label
+//   th08.channel    release | dev (default) | debug: applicationId com.zun.th08[.dev|.debug] and app label
 //   th08.keystore   keystore.properties for release signing       th08.debugKey  debug keystore (default
 //                   (storeFile relative to the file)                             target/android/debug.keystore)
 //   th08.versionCode (1)   th08.versionName   th08.minSdk (26)   th08.profile (cargo profile, release)
@@ -24,8 +24,10 @@ val appChannel = (prop("th08.channel") ?: "dev").also {
     if (it !in listOf("release", "dev", "debug")) throw GradleException("th08.channel $it: release, dev or debug")
 }
 val appVersion = prop("th08.versionName") ?: "0.1.0"
+// Release shrinking is the memory-hungry step; -Pth08.minify=false keeps a small host within its RAM.
+val doMinify = (prop("th08.minify") ?: "true").toBoolean()
 
-// libth08.so per ABI through tools/android/cargo_android.sh (NDK clang).
+// libth08.so per ABI through tools/android/cargo_android.ps1 (Windows) or .sh (Linux/macOS), NDK clang.
 abstract class CargoBuild : DefaultTask() {
     @get:Input abstract val abis: ListProperty<String>
     @get:Input abstract val profile: Property<String>
@@ -44,6 +46,8 @@ abstract class CargoBuild : DefaultTask() {
     @TaskAction
     fun run() {
         val root = repo.get().asFile
+        // Windows hosts run the NDK build through PowerShell; the shell script stays for Linux and macOS.
+        val windowsHost = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
         execOps.exec {
             workingDir = root
             environment("TH08_ANDROID_PROFILE", profile.get())
@@ -51,7 +55,13 @@ abstract class CargoBuild : DefaultTask() {
             // Read by build.rs for the launcher and port-menu version line.
             environment("TH08_VERSION", version.get())
             environment("TH08_CHANNEL", channel.get())
-            commandLine(listOf(File(root, "tools/android/cargo_android.sh").path, outputDir.get().asFile.path) + abis.get())
+            if (windowsHost) {
+                commandLine(listOf("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                    File(root, "tools/android/cargo_android.ps1").path, outputDir.get().asFile.path) + abis.get())
+            } else {
+                commandLine(listOf(File(root, "tools/android/cargo_android.sh").path,
+                    outputDir.get().asFile.path) + abis.get())
+            }
         }
     }
 }
@@ -147,12 +157,12 @@ fun keyConfig(): Map<String, Any> {
 }
 
 android {
-    namespace = "org.th08.port"
+    namespace = "com.zun.th08"
     compileSdk = 36
     ndkVersion = "27.1.12297006"
 
     defaultConfig {
-        applicationId = "org.th08.port"
+        applicationId = "com.zun.th08"
         minSdk = minSdkLevel
         targetSdk = 36
         versionCode = (prop("th08.versionCode") ?: "1").toInt()
@@ -172,8 +182,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = doMinify
+            isShrinkResources = doMinify
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.getByName("th08")
             if (appChannel != "release") applicationIdSuffix = ".$appChannel"

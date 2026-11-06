@@ -1,6 +1,6 @@
 // port.cfg in filesDir, read and written like settings.rs (`parse_port_cfg`, `set_cfg_line`): `key = value` lines,
 // comments, blank and unknown lines kept; plus launch.cfg, the one-start settings the game reads and deletes (lib.rs).
-package org.th08.port
+package com.zun.th08
 
 import java.io.File
 import java.io.FileOutputStream

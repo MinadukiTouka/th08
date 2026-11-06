@@ -49,8 +49,8 @@ pub struct DistArgs {
     /// Android: sign with the throwaway key target/android/debug.keystore (debug channel only).
     #[arg(long)]
     debug_key: bool,
-    /// Android channel: release (org.th08.port, public), dev (org.th08.port.dev, personal key, default) or debug
-    /// (org.th08.port.debug, throwaway key).
+    /// Android channel: release (com.zun.th08, public), dev (com.zun.th08.dev, personal key, default) or debug
+    /// (com.zun.th08.debug, throwaway key).
     #[arg(long, value_enum)]
     channel: Option<Channel>,
     /// Output file (directory for web and windows-exe with assets); default target/dist/<name>.

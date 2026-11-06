@@ -12,7 +12,7 @@
 - Platforms: Linux and Windows (native), the browser (WebAssembly, WebGPU or WebGL2), Android (APK).
 - Releases on GitHub (Windows exe, Linux AppImage, Android APK, no game data), built and published by a manual
   workflow; player guide in [PLAYING.md](PLAYING.md).
-- Android channels side by side: `release` (`org.th08.port`, GitHub), `dev` and `debug` (local builds).
+- Android channels side by side: `release` (`com.zun.th08`, GitHub), `dev` and `debug` (local builds).
 - Input: keyboard, gamepads (Windows, Linux, Android), an Android touch overlay with a layout editor in the port menu
   (move, resize, opacity, show / hide; landscape and portrait).
 - Launcher with every port setting (egui on desktop and web, Compose on Android); launcher text in Japanese, English

@@ -1,7 +1,7 @@
 //! JNI entry of the Android launcher's game-file import (th08-repack `import::bridge`).
 
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_org_th08_port_GameImport_call<'c>(
+pub extern "system" fn Java_com_zun_th08_GameImport_call<'c>(
     mut env: jni::EnvUnowned<'c>,
     _class: jni::objects::JClass<'c>,
     req: jni::objects::JString<'c>,

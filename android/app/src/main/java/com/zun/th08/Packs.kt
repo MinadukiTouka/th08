@@ -1,6 +1,6 @@
 // Translation packs on the settings screen: the Rust importer (libth08, translations.rs `bridge`) behind one JSON call,
 // and the state the screen shows.
-package org.th08.port
+package com.zun.th08
 
 import org.json.JSONObject
 

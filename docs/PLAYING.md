@@ -45,10 +45,10 @@ and keeps them in its private storage; the picked files are not changed and can 
 
 | | Windows | Linux | Android |
 |---|---|---|---|
-| `port.cfg` (launcher settings) | `%APPDATA%\th08\` | `~/.config/th08/` (`$XDG_CONFIG_HOME/th08/`) | `/data/user/0/org.th08.port/files/` |
+| `port.cfg` (launcher settings) | `%APPDATA%\th08\` | `~/.config/th08/` (`$XDG_CONFIG_HOME/th08/`) | `/data/user/0/com.zun.th08/files/` |
 | `score.dat`, `th08.cfg` | same folder | same folder | same folder |
-| replays (`replay/`) | `%APPDATA%\th08\replay\` | `~/.config/th08/replay/` | `/data/user/0/org.th08.port/files/replay/` |
-| downloaded translations (`packs/`) | `%APPDATA%\th08\packs\` | `~/.config/th08/packs/` | `/data/user/0/org.th08.port/files/packs/` |
+| replays (`replay/`) | `%APPDATA%\th08\replay\` | `~/.config/th08/replay/` | `/data/user/0/com.zun.th08/files/replay/` |
+| downloaded translations (`packs/`) | `%APPDATA%\th08\packs\` | `~/.config/th08/packs/` | `/data/user/0/com.zun.th08/files/packs/` |
 
 - Desktop: the `save_dir` setting (`th08 --help`) moves `score.dat`, `th08.cfg` and the replays elsewhere.
 - Android: this is the app's private storage. Other apps and a file manager cannot see it, and **uninstalling the
@@ -78,7 +78,7 @@ The launcher and the in-game port menu themselves come in Japanese, English and 
 
 ## Updates
 
-The launcher of a release build (the files on GitHub, Android `org.th08.port`) asks GitHub's release list at most
+The launcher of a release build (the files on GitHub, Android `com.zun.th08`) asks GitHub's release list at most
 once a day whether a newer version is out, and only while the launcher screen is open, never during play. When there
 is one, a row at the top says "Version X is available" with **What is new** (the release page) and **Download** (the
 file for your system: the APK on Android, the installer or the portable exe on Windows, matching the one you run, the
@@ -100,9 +100,9 @@ the Linux AppImage updates itself with AppImageUpdate (see Downloads).
 
 ## Android channels
 
-Releases carry `org.th08.port` ("th08"); `org.th08.port.dev` ("th08 dev") and `org.th08.port.debug` ("th08 debug")
+Releases carry `com.zun.th08` ("th08"); `com.zun.th08.dev` ("th08 dev") and `com.zun.th08.debug` ("th08 debug")
 are local builds (see [CONTRIBUTING.md](../CONTRIBUTING.md#packaging-and-versions)). The three install side by side
-and each has its own game folder and saves: replace `org.th08.port` in the paths above with the package name.
+and each has its own game folder and saves: replace `com.zun.th08` in the paths above with the package name.
 
 ## Legal
 

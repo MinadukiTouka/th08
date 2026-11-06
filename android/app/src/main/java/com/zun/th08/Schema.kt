@@ -1,6 +1,6 @@
 // The settings table as exported by `settings_schema` (crates/th08-tools) into assets/settings_schema.json, with
 // the ja / ru texts of schema v3 picked by the `language` setting.
-package org.th08.port
+package com.zun.th08
 
 import android.content.Context
 import android.content.res.Resources

@@ -24,7 +24,7 @@ the game: the port reads `th08.dat` and `thbgm.dat` from it.
 5. **Translations:** the **Translations** panel in the launcher downloads one from Touhou Patch Center and builds the
    pack on your device from your game data; then choose it in **Game text language**.
 
-Android builds come in three channels: `release` (`org.th08.port`) is the one on GitHub; `dev` and `debug` are local
+Android builds come in three channels: `release` (`com.zun.th08`) is the one on GitHub; `dev` and `debug` are local
 builds. Details, exact paths and controls: [docs/PLAYING.md](docs/PLAYING.md).
 
 Updates: the launcher says when a newer release is out (once a day at most, can be turned off). On Android,

@@ -80,9 +80,9 @@ Android has three channels, installable side by side:
 
 | `--channel` | applicationId | label | signing | use |
 |---|---|---|---|---|
-| `release` | `org.th08.port` | th08 | `--keystore PROPS` only | GitHub Releases; `--assets none` only, no `--packs` |
-| `dev` (default) | `org.th08.port.dev` | th08 dev | `--keystore PROPS` or `TH08_KEYSTORE_PROPS` | personal builds, may bundle game data and packs |
-| `debug` | `org.th08.port.debug` | th08 debug | `--debug-key` (throwaway `target/android/debug.keystore`) | agents and emulators |
+| `release` | `com.zun.th08` | th08 | `--keystore PROPS` only | GitHub Releases; `--assets none` only, no `--packs` |
+| `dev` (default) | `com.zun.th08.dev` | th08 dev | `--keystore PROPS` or `TH08_KEYSTORE_PROPS` | personal builds, may bundle game data and packs |
+| `debug` | `com.zun.th08.debug` | th08 debug | `--debug-key` (throwaway `target/android/debug.keystore`) | agents and emulators |
 
 `PROPS` is a `keystore.properties` file with `storeFile` (absolute or relative to the file), `storePassword`,
 `keyAlias` and `keyPassword`. Only its path is passed on; Gradle reads the passwords. Never commit a keystore.
@@ -120,6 +120,12 @@ MSVC), the AppImage and its `.zsync`, and the APK; plus a `SHA256SUMS` file over
 attestation for each (`gh attestation verify th08-<version>-android-apk.apk -R kauri-off/th08-rs`). All actions in the workflows
 are pinned by commit SHA, the version in a trailing comment; `pages.yml` checks the downloaded wasm-bindgen against
 a pinned sha256, so a wasm-bindgen bump in `Cargo.lock` also updates `PIN_VERSION` and `PIN_SHA256` there.
+
+## Building the APK on Windows
+
+On Windows the Gradle `cargoBuild` task builds `libth08.so` through `tools/android/cargo_android.ps1` (NDK `windows-x86_64` clang) instead of the shell
+script. JDK 17, the SDK pieces and `ANDROID_NDK_HOME` are the same. `-Pth08.minify=false` skips R8 on a low-memory host. See
+[`docs/BUILD_WINDOWS.md`](docs/BUILD_WINDOWS.md).
 
 ## Commits
 

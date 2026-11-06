@@ -1,6 +1,6 @@
 // Launcher screen (MATERIAL2), Geode-launcher style: section headers over segmented row blocks, whole-row taps, values
 // edited in dialogs, long help behind an info button; two panes (title, status, Play | settings) in wide windows.
-package org.th08.port
+package com.zun.th08
 
 import android.content.Context
 import android.content.res.Configuration

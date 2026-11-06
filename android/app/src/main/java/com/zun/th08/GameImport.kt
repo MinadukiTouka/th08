@@ -1,6 +1,6 @@
 // Game data import: the system picker's th08 / thbgm files streamed by descriptor into the Rust converter (libth08,
 // th08-repack `import::bridge`), which writes checked th08.pak + thbgm.pak into filesDir/game.
-package org.th08.port
+package com.zun.th08
 
 import android.net.Uri
 import android.os.ParcelFileDescriptor

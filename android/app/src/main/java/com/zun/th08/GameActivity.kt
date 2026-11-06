@@ -1,5 +1,5 @@
 // The game's NativeActivity (lib th08): immersive bars and Back through OnBackInvokedCallback into Rust (platform/back.rs).
-package org.th08.port
+package com.zun.th08
 
 import android.app.NativeActivity
 import android.content.res.Configuration

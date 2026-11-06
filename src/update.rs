@@ -3,9 +3,12 @@
 use serde_json::{Value, json};
 use std::path::Path;
 
-pub const LATEST_URL: &str = "https://api.github.com/repos/kauri-off/th08-rs/releases/latest";
+pub const LATEST_URL: &str = "https://api.github.com/repos/MinadukiTouka/th08-rs/releases/latest";
 const STATE_FILE: &str = "update_check.json";
 const DAY_SECS: u64 = 24 * 60 * 60;
+// Fork builds: the upstream updater would replace a bundled personal build with the data-free release APK, so it
+// stays off until this fork publishes its own releases (docs/BUILD_WINDOWS.md).
+const FORK_UPDATER: bool = false;
 // Test-only: a release JSON file read instead of the network, without the channel and the daily gate (desktop: this
 // env var; Android outside the release channel: `<files>/update_test.json`).
 #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
@@ -61,12 +64,12 @@ impl Platform {
     }
 }
 
-// Release channel: the public APK (`org.th08.port`) or a desktop build with TH08_RELEASE_TAG.
+// Release channel: the public APK (`com.zun.th08`) or a desktop build with TH08_RELEASE_TAG.
 pub fn release_build() -> bool {
     const CHANNEL: &str = env!("TH08_CHANNEL");
     const TAG: &str = env!("TH08_RELEASE_TAG");
     if cfg!(target_os = "android") {
-        CHANNEL == "release"
+        CHANNEL == "release" && FORK_UPDATER
     } else {
         !TAG.is_empty()
     }
@@ -255,7 +258,7 @@ impl Background {
 // Android launcher (UpdateCheck.kt): `{"config": dir}` → the newer release, or `{}`.
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_org_th08_port_UpdateCheck_call<'c>(
+pub extern "system" fn Java_com_zun_th08_UpdateCheck_call<'c>(
     mut env: jni::EnvUnowned<'c>,
     _class: jni::objects::JClass<'c>,
     req: jni::objects::JString<'c>,
