@@ -143,7 +143,7 @@ impl Default for TouchLayout {
         Self {
             landscape: vec![
                 // Drag anywhere: the move zone covers the picture and is invisible; the TH07 touch scheme.
-                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: true },
+                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: false },
                 c(Ctl::Shot, 0.935, 0.75, 15.0, 15.0),
                 c(Ctl::Bomb, 0.94, 0.47, 11.0, 11.0),
                 c(Ctl::Focus, 0.835, 0.90, 12.0, 12.0),
@@ -153,7 +153,7 @@ impl Default for TouchLayout {
                 c(Ctl::Menu, 0.04, 0.09, 8.0, 8.0),
             ],
             portrait: vec![
-                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: true },
+                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: false },
                 c(Ctl::Shot, 0.84, 0.85, 15.0, 15.0),
                 c(Ctl::Bomb, 0.84, 0.70, 11.0, 11.0),
                 c(Ctl::Focus, 0.62, 0.93, 12.0, 12.0),
