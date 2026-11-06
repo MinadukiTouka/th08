@@ -2,6 +2,7 @@
 
 use th08_core::input::*;
 use th08_render::gfx::SafeArea;
+use web_time::{Duration, Instant};
 use winit::event::TouchPhase;
 
 // Finger id of the desktop mouse when `touch_mouse` is on.
@@ -141,7 +142,8 @@ impl Default for TouchLayout {
     fn default() -> Self {
         Self {
             landscape: vec![
-                c(Ctl::Move, 0.30, 0.50, 0.60, 1.00),
+                // Drag anywhere: the move zone covers the picture and is invisible; the TH07 touch scheme.
+                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: true },
                 c(Ctl::Shot, 0.935, 0.75, 15.0, 15.0),
                 c(Ctl::Bomb, 0.94, 0.47, 11.0, 11.0),
                 c(Ctl::Focus, 0.835, 0.90, 12.0, 12.0),
@@ -151,7 +153,7 @@ impl Default for TouchLayout {
                 c(Ctl::Menu, 0.04, 0.09, 8.0, 8.0),
             ],
             portrait: vec![
-                c(Ctl::Move, 0.275, 0.835, 0.55, 0.33),
+                Control { ctl: Ctl::Move, x: 0.5, y: 0.5, w: 5.0, h: 5.0, opacity: 0.0, visible: true },
                 c(Ctl::Shot, 0.84, 0.85, 15.0, 15.0),
                 c(Ctl::Bomb, 0.84, 0.70, 11.0, 11.0),
                 c(Ctl::Focus, 0.62, 0.93, 12.0, 12.0),
@@ -287,10 +289,10 @@ pub enum TouchMode {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Movement {
-    // Relative drag: the player follows the finger's movement.
+    // Relative drag: the player follows the finger's movement (the default: drag anywhere, as the TH07 port).
+    #[default]
     Drag,
     // Floating 8-way stick centred where the finger went down.
-    #[default]
     Stick,
 }
 
@@ -317,10 +319,11 @@ impl Default for TouchConfig {
         Self {
             mode: TouchMode::Auto,
             mouse: false,
-            movement: Movement::Stick,
+            // TH07 touch scheme: relative drag anywhere, shoot while a finger is down.
+            movement: Movement::Drag,
             sens: 1.0,
             focus_toggle: false,
-            autofire: true,
+            autofire: false,
             opacity: 0.5,
             layout: TouchLayout::default(),
         }
@@ -408,7 +411,10 @@ impl TouchScene {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum On {
     Button(Ctl),
+    // First free finger in play: relative drag and auto-fire.
     Move,
+    // Second free finger in play / menu: FOCUS while held.
+    Focus,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -425,6 +431,10 @@ struct Finger {
     travel: f32,
     // Some poll has seen this finger down.
     polled: bool,
+    // When the finger went down (dialogue hold-to-skip).
+    started: Instant,
+    // The hold-to-skip pulse was sent.
+    skip_sent: bool,
 }
 
 // A placed control in window pixels.
@@ -475,6 +485,8 @@ pub struct TouchSource {
     fingers: Vec<Finger>,
     autofire: bool,
     focus_on: bool,
+    // When the movement finger was last released (the auto-fire tail of the TH07 touch scheme).
+    move_released: Option<Instant>,
     scene: TouchScene,
     // Drag target (game px) and the previous poll's request / position (wall re-anchoring).
     target: Option<[f32; 2]>,
@@ -519,9 +531,9 @@ impl TouchSource {
             self.target = None;
             self.acc = [0.0; 2];
             self.pulses.clear();
-            for f in &mut self.fingers {
-                f.seen = f.last;
-            }
+            // Gesture fingers must not survive a screen change (a held drag would keep steering).
+            self.fingers.clear();
+            self.move_released = None;
         }
         self.scene = s;
     }
@@ -536,6 +548,7 @@ impl TouchSource {
             self.acc = [0.0; 2];
             self.mouse_down = false;
             self.menu_req = false;
+            self.move_released = None;
         }
     }
 
@@ -722,19 +735,39 @@ impl TouchSource {
             return;
         }
         let placed = self.placed();
+        let play = matches!(self.scene, TouchScene::Play { .. });
+        let gestures = self
+            .fingers
+            .iter()
+            .filter(|f| matches!(f.on, On::Move | On::Focus))
+            .count();
+        // The letterbox bars beside the picture and the bottom-left corner bomb, as in the TH07 port.
+        if play && self.bomb_zone(p) {
+            self.pulse(BOMB);
+            return;
+        }
+        // Four gesture fingers at once pause.
+        if play && gestures >= 3 {
+            self.pulse(PAUSE);
+            self.fingers.clear();
+            return;
+        }
         let on = if let Some(b) = placed.iter().find(|c| c.ctl != Ctl::Move && c.hit(p)) {
             On::Button(b.ctl)
-        } else if placed.iter().any(|c| c.ctl == Ctl::Move && c.hit(p))
-            && !self.fingers.iter().any(|f| f.on == On::Move)
-        {
+        } else if !self.fingers.iter().any(|f| f.on == On::Move) {
+            // Drag anywhere: the move zone is the whole safe rect by default.
             On::Move
+        } else if !self.fingers.iter().any(|f| f.on == On::Focus) {
+            On::Focus
         } else {
             return;
         };
         match on {
             On::Button(Ctl::Auto) => self.autofire = !self.autofire,
             On::Button(Ctl::Menu) => self.menu_req = true,
-            On::Button(Ctl::Focus) if self.cfg.focus_toggle => self.focus_on = !self.focus_on,
+            On::Button(Ctl::Focus) | On::Focus if self.cfg.focus_toggle => {
+                self.focus_on = !self.focus_on;
+            }
             On::Move => {
                 self.target = None;
                 self.acc = [0.0; 2];
@@ -750,6 +783,8 @@ impl TouchSource {
             centre: p,
             travel: 0.0,
             polled: false,
+            started: Instant::now(),
+            skip_sent: false,
         });
     }
 
@@ -768,9 +803,23 @@ impl TouchSource {
         }
         if f.on == On::Move {
             self.target = None;
-            // Menu tap = confirm.
-            if ended && self.scene == TouchScene::Menu && f.travel < TAP_MM * self.ppm {
-                self.pulse(SHOT);
+            self.move_released = Some(Instant::now());
+            let tap = ended && f.travel < TAP_MM * self.ppm;
+            if tap {
+                match self.scene {
+                    // Menu tap = confirm; a second finger down makes it a two-finger tap = back, as in TH07.
+                    TouchScene::Menu => {
+                        if self.fingers.iter().any(|o| matches!(o.on, On::Move | On::Focus)) {
+                            self.pulse(self.scene.back_bit());
+                            self.fingers.clear();
+                        } else {
+                            self.pulse(SHOT);
+                        }
+                    }
+                    // Dialogue: a tap advances the message.
+                    TouchScene::Play { fire: false, .. } => self.pulse(SHOT),
+                    TouchScene::Play { fire: true, .. } => {}
+                }
             }
         }
     }
@@ -812,6 +861,8 @@ impl TouchSource {
             .filter_map(|f| match f.on {
                 On::Button(Ctl::Focus) if toggle => None,
                 On::Button(c) => Some(c.bit()),
+                On::Focus if toggle => None,
+                On::Focus => Some(FOCUS),
                 On::Move => None,
             })
             .fold(0, |w, b| w | b);
@@ -822,8 +873,29 @@ impl TouchSource {
                 mult,
                 fire,
             } => {
-                if fire && self.autofire {
+                // Auto-fire while a movement finger is down (with the TH07 port's short tail after release).
+                let moving = self.fingers.iter().any(|f| f.on == On::Move);
+                let tail = self
+                    .move_released
+                    .is_some_and(|t| t.elapsed() < Duration::from_millis(200));
+                if fire && (self.autofire || moving || tail) {
                     w |= SHOT;
+                }
+                if !fire {
+                    // Dialogue: holding a finger skips, as the TH07 port's 500 ms dialogue hold did.
+                    let mut skip = false;
+                    for f in &mut self.fingers {
+                        if f.on == On::Move
+                            && !f.skip_sent
+                            && f.started.elapsed() >= Duration::from_millis(500)
+                        {
+                            f.skip_sent = true;
+                            skip = true;
+                        }
+                    }
+                    if skip {
+                        self.pulse(SKIP);
+                    }
                 }
                 if toggle && self.focus_on {
                     w |= FOCUS;
@@ -849,6 +921,17 @@ impl TouchSource {
     }
 
     // Window px → game px (the blit's letterbox scale in the safe rect).
+    // The bomb zones of the TH07 touch scheme: the letterbox bars beside the picture, and the bottom-left corner.
+    fn bomb_zone(&self, p: [f32; 2]) -> bool {
+        let scale = self.game_scale();
+        let rw = SCREEN[0] * scale;
+        let rx = self.origin[0] + (self.size[0] - rw) / 2.0;
+        if rw + 1.0 < self.size[0] && (p[0] < rx || p[0] > rx + rw) {
+            return true;
+        }
+        p[0] < self.origin[0] + 0.15 * self.size[0] && p[1] > self.origin[1] + 0.85 * self.size[1]
+    }
+
     fn game_scale(&self) -> f32 {
         (self.size[0] / SCREEN[0]).min(self.size[1] / SCREEN[1])
     }
@@ -967,6 +1050,7 @@ impl TouchSource {
         let dp = self.ppm / DP_PER_MM;
         let edge = EDGE_DP * dp;
         let mut placed = self.placed();
+        placed.retain(|p| p.ctl != Ctl::Move);
         placed.sort_by_key(|p| p.ctl.edge_rank());
         let mut out = Vec::new();
         for left in [true, false] {

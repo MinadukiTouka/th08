@@ -1099,7 +1099,7 @@
     },
     {
       "audience": "player",
-      "default": "stick",
+      "default": "drag",
       "group": "touch",
       "help": "movement: drag (the player follows the finger's movement) or a floating stick",
       "ja": {
@@ -1265,7 +1265,7 @@
     },
     {
       "audience": "player",
-      "default": "on",
+      "default": "off",
       "group": "touch",
       "help": "auto-fire at start (in play only; the AUTO button toggles it)",
       "ja": {
