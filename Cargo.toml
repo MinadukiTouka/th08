@@ -1,0 +1,126 @@
+[workspace]
+members = [".", "crates/th08-formats", "crates/th08-core", "crates/th08-render", "crates/th08-audio", "crates/th08-thcrap", "crates/th08-repack", "crates/th08-tools", "xtask"]
+resolver = "3"
+exclude = ["vendor"]
+
+# Lint subset: worth fixing in a bit-exact port (casts that keep the bits, readability, long fns);
+# ftol / fild casts, float_cmp and spec formula names stay allowed. Thresholds in clippy.toml.
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+cast_lossless = "warn"
+cast_possible_wrap = "warn"
+cast_sign_loss = "warn"
+unreadable_literal = "warn"
+too_many_lines = "warn"
+too_many_arguments = "warn"
+struct_excessive_bools = "warn"
+semicolon_if_nothing_returned = "warn"
+redundant_closure_for_method_calls = "warn"
+explicit_iter_loop = "warn"
+manual_let_else = "warn"
+items_after_statements = "warn"
+default_trait_access = "warn"
+if_not_else = "warn"
+single_match_else = "warn"
+needless_pass_by_value = "warn"
+match_same_arms = "warn"
+bool_to_int_with_if = "warn"
+
+[package]
+name = "th08"
+version = "0.1.3"
+license = "GPL-3.0-or-later"
+edition = "2024"
+rust-version = "1.98"
+description = "Clean-room reimplementation of Touhou 8: Imperishable Night"
+default-run = "th08"
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+th08-audio = { path = "crates/th08-audio" }
+th08-core = { path = "crates/th08-core" }
+th08-render = { path = "crates/th08-render" }
+anyhow = "1.0.104"
+egui = { version = "0.37", default-features = false, features = ["default_fonts"] }
+egui-wgpu = { version = "0.37", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+log = "0.4.34"
+semver = "1"
+serde_json = "1"
+toml = "1.1"
+# Translation download / import from the settings screens (translations.rs).
+th08-thcrap = { path = "crates/th08-thcrap" }
+web-time = "1.1.0"
+wgpu = "30"
+winit = "0.30"
+# Presentation packs (packs.rs) and save backups (saves.rs) as .zip.
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[features]
+default = ["gamepad-linux"]
+# Joystick on Linux (gilrs links libudev); `--no-default-features` builds without it where libudev-dev is missing.
+gamepad-linux = ["dep:gilrs"]
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+gilrs = "0.11.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gilrs = { version = "0.11.2", optional = true }
+
+[dev-dependencies]
+# i18n.rs test: the web CJK subset font covers ja.toml.
+ab_glyph = "0.2"
+
+[build-dependencies]
+winresource = { version = "0.1.34", default-features = false }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+egui-winit = { version = "0.37", default-features = false, features = ["clipboard", "wayland", "x11"] }
+directories = "6"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# The launcher's update check (update.rs).
+ureq = "3.4"
+# Start-up blocks on a future on Android too (app::spawn), so pollster is native, not desktop-only.
+pollster = "1.0.1"
+
+# Desktop only: no file/message dialogs, CLI or stderr logger on wasm (page) or Android (logcat).
+[target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
+clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "color", "string"] }
+env_logger = "0.11.11"
+rfd = "0.17"
+# "Open folder" on the launcher's last-error notice.
+open = "5.3"
+sys-locale = "0.3.2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.15.1"
+# Safe-area insets from the NativeActivity's WindowInsets (platform/safearea.rs).
+jni = "0.22.4"
+ndk-context = "0.1.1"
+# Import of picked game files into <internal>/game (gameimport.rs).
+th08-repack = { path = "crates/th08-repack", features = ["device"] }
+winit = { version = "0.30", features = ["android-native-activity"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Console"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1.7"
+console_log = "1.1.0"
+egui-winit = { version = "0.37", default-features = false }
+js-sys = "0.3.106"
+wasm-bindgen = "0.2.129"
+wasm-bindgen-futures = "0.4.79"
+web-sys = { version = "0.3.106", features = ["Window", "Document", "HtmlCanvasElement", "HtmlInputElement", "Element", "File", "FileList", "Location", "UrlSearchParams", "Blob", "Event", "console", "CanvasRenderingContext2d", "ImageData", "TextMetrics", "Storage", "Navigator", "HtmlAnchorElement", "Url", "BlobPropertyBag", "EventTarget", "Response", "StorageManager", "FileSystemDirectoryHandle", "FileSystemFileHandle", "FileSystemGetDirectoryOptions", "FileSystemGetFileOptions", "FileSystemWritableFileStream"] }
+
+[profile.dev.package."*"]
+opt-level = 2
+
+# Android: android-activity with a motion-event hook (gamepad hat axes, which winit drops); see vendor/README.md.
+[patch.crates-io]
+android-activity = { path = "vendor/android-activity" }

@@ -1,0 +1,78 @@
+# Struct layouts (opus)
+
+## AnmLoadedFile (ANM manager + 0x24 + slot*0x1C), 25 slots — VERIFIED (Anm_Preload 0x465860)
+| off | size | type | name | meaning | conf |
+|---|---|---|---|---|---|
+| 0x00 | 4 | int | slot | slot index | VERIFIED |
+| 0x04 | 4 | ptr | data | file buffer | VERIFIED |
+| 0x08 | 4 | int | num_entries | | VERIFIED |
+| 0x0C | 4 | ptr | sprites | AnmSprite[total] (0x44 each) | VERIFIED |
+| 0x10 | 4 | ptr | scripts | ptr[total scripts] | VERIFIED |
+| 0x14 | 4 | ptr | textures | {tex, ext_data, ext_size}[num_entries] | VERIFIED |
+| 0x18 | 4 | int | load_state | 0 = all entries uploaded; n ≥ 1 = entry n−1 is the next to upload (`Anm_PostloadStep` 0x465BA0 uploads one entry per call, sets 0 after the last entry or on failure; `Anm_Load` loops until 0). `AnmVm_SetSprite` fails (−1, VM unchanged) while ≠ 0 | VERIFIED RE-Q26 |
+
+## AnmSprite runtime (0x44) — from Anm_LoadEntryTexture / FUN_004661b0
+| off | type | meaning | conf |
+|---|---|---|---|
+| 0x00 | int | anm slot | VERIFIED |
+| 0x04 | ptr | texture | VERIFIED |
+| 0x08..0x14 | f32×4 | u0,v0,u1,v1 in actual-texture pixels | VERIFIED |
+| 0x18 | f32 | actual texture height | VERIFIED |
+| 0x1C | f32 | actual texture width | VERIFIED |
+| 0x20..0x2C | f32×4 | normalised u0,v0,u1,v1 | VERIFIED |
+| 0x30 | f32 | sprite height (logical px) | VERIFIED |
+| 0x34 | f32 | sprite width (logical px) | VERIFIED |
+| 0x38,0x3C | f32 | actual texture width / ANM header width, actual height / header height (`Anm_LoadEntryTexture`; ≠ 1 only when the THTX is larger than the header, e.g. eff09sk.anm#1). Sprite size +0x34/+0x30 = UV pixel extent / these factors | VERIFIED RE-Q26 |
+
+## thbgm.fmt record (0x34) — see 02_bgm.md (VERIFIED)
+## PBGZ entry (runtime 0x10): name*, offset, size, reserved — see 01_archive.md (VERIFIED)
+
+## Phase 2 structures (full tables in the spec files)
+- AnmVm (0x2A4) — 05_anm_vm.md §2 (VERIFIED). Timer (0xC) — 05 §2.
+- Stage object g_Stage 0x4E4030 (partial) — 06_std.md §3. STD file records — 06 §1.
+- ECL context (0x228), thread block (0x24B0), enemy object (0x53D0, main fields) — 07_ecl.md §4.3/§5.1.
+- Bullet spawn descriptor (enemy +0x2E24, 0x210 bytes): +0 i16 type, +2 i16 colour, +4 f32[3] origin, +0x10 angle1, +0x14 angle2, +0x18 speed1, +0x1C speed2, +0x20 extra commands 18x24 B, +0x1F4 i16 count1, +0x1F6 count2, +0x1F8 aim mode, +0x1FA 0, +0x1FC u32 flags, +0x200 sfx, +0x204 i32, +0x20C template ptr — VERIFIED (07 §9).
+
+## Phase 3 structures (full tables in 08 / 09)
+- Bullet manager 0xF54E90 (templates 21×0xD44, bullets 1536×0x10B8 at +0x1A880, lasers 256×0x59C at +0x660938) — 08 §2, §6.
+- Bullet ex-command slot (24 B: f32 e, f32 f, i32 c, i32 d, u32 cmd, i32 chain) — 08 §5.
+- Item manager 0x1653648 (2096×0x2E4, list) — 08 §8.
+- Player 0x17D5EF8 (0xE2B30), player bullet 0x484, option 0x2F4, area 0x40, .sht header/entry — 09.
+
+## Supervisor g_Supervisor 0x17CE758 (0x364 bytes = 0xD9 dwords) — fields confirmed in phase 7
+| off | abs | type | meaning | conf |
+|---|---|---|---|---|
+| 0x008 | 0x17CE760 | ptr | IDirect3DDevice8 | VERIFIED |
+| 0x118 | 0x17CE870 | 60 B | th08.cfg copy (15 §1.1); +0x13E = cfg+0x26 joystick shot-focus, +0x150 = cfg+0x38 debug flags | VERIFIED |
+| 0x158/0x15C/0x160 | 0x17CE8B0.. | i32 | current / next / previous scene (11 §7) | VERIFIED |
+| 0x188 | 0x17CE8E0 | f32 | game speed | VERIFIED |
+| 0x190/0x194 | 0x17CE8E8/EC | f32 | slowdown accumulators A / B (15 §2.11) | VERIFIED |
+| 0x198 | 0x17CE8F0 | u8 | fps_now (changelog/answers_phase7.md §6) | VERIFIED |
+| 0x1A4 | 0x17CE8FC | u32 | flags: 0x1 cleared by `Window_InitD3D`; 0x2 screen-capture support (`Window_InitD3D`); 0x4 set/cleared in `Window_InitD3D`; 0x8 never set (only the anti-tamper fill); 0x10 WinMain; 0x20 ECL native 29 (05 §12.6); 0x40 start-up; 0x80 window proc / `Supervisor_Init`; 0x100 ctor, cleared by `Supervisor_Init` | VERIFIED |
+| 0x284 | 0x17CE9DC | HANDLE | loader thread handle (`Supervisor_StartLoader` 0x4486BA creates the thread with the loader function itself as thread proc: `Supervisor_Init` at boot, `MainMenu_LoaderThread`, `GameManager_StageStart`) | VERIFIED |
+| 0x28C | 0x17CE9E4 | u32 | abort request: set by `Supervisor_JoinLoader` 0x44871B before waiting; loaders and `Anm_LoadAndWait` give up when ≠ 0 | VERIFIED |
+| 0x290 | 0x17CE9E8 | u32 | loader running: 1 from thread start; each loader clears it as its last action | VERIFIED |
+| 0x294 | 0x17CE9EC | u32 | loading state for `Supervisor_Calc`: ≠ 0 → returns before polling input (2 = failed → 4; running → 1); cleared when the loader is done | VERIFIED |
+| 0x2FC | 0x17CEA54 | u32 | loading-screen state: 1 shown, 2 after `Loading_Wait`, 0 after `Loading_End` | VERIFIED |
+| 0x338..0x34C | 0x17CEA90.. | u32×5 | zeroed by MainMenu_OnRegister; +0x338 = replay fps flag (always 0), +0x33C (0x17CEA94) = playback fps-red flag | VERIFIED |
+| 0x350 | 0x17CEAA8 | u32 | fog state cache | VERIFIED |
+Whole object is overwritten with 0xFFFFFFFF on anti-tamper detection (changelog/answers_phase7.md).
+
+## MusicRoom 0x17CF4C8 (0x6A28 bytes, 16 §5) — VERIFIED (RE-Q39)
+
+| off | size | type | name | meaning |
+|---|---|---|---|---|
+| 0x00 | 4 | ptr | calc node | |
+| 0x04 | 4 | ptr | draw node | removed by on-remove |
+| 0x08 | 4 | ptr | anm file | music00.anm (slot 0x17) |
+| 0x0C | 4·32 | i32[] | heard | copy of PLST+0x208 (signed byte) at init |
+| 0x6C | 4 | i32 | sub-frame | +2 per frame in state 1 (16 §5.3) |
+| 0x70 | 4 | i32 | state | 0 intro, 1 input |
+| 0x74 | 4 | i32 | cursor | |
+| 0x78 | 4 | i32 | playing | 0 at init |
+| 0x7C | 4 | i32 | top row | |
+| 0x80 | 4 | i32 | count | entries parsed |
+| 0x84 | 4 | ptr | entries | 32 × 0x292 (16 §5.1) |
+| 0x88 | 0x2A4 | AnmVm | bg | music00 script 0 |
+| 0x32C | 31 × 0x2A4 | AnmVm[] | rows | music00 script i + 1 |
+| 0x5508 | 8 × 0x2A4 | AnmVm[] | comments 0–6, title (+0x6784) | text.anm 10 + k / 0x11 |

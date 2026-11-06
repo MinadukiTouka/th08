@@ -1,0 +1,27 @@
+[package]
+name = "th08-render"
+version = "0.1.0"
+license = "GPL-3.0-or-later"
+edition = "2024"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+th08-core = { path = "../th08-core" }
+anyhow = "1.0.104"
+bytemuck = { version = "1.25.2", features = ["derive"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+log = "0.4.34"
+wgpu = { version = "30", features = ["webgl"] }
+winit = "0.30"
+# Text raster: system font (native) and the presentation pack's FileFont (every target, ARCH_B §1.6).
+ab_glyph = "0.2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pollster = "1.0.1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.129"
+web-sys = { version = "0.3.106", features = ["Window", "Document", "HtmlCanvasElement", "HtmlInputElement", "Element", "File", "FileList", "Location", "UrlSearchParams", "Blob", "Event", "console", "CanvasRenderingContext2d", "ImageData", "TextMetrics", "Storage", "EventTarget"] }

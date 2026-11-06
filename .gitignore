@@ -1,0 +1,27 @@
+/target
+/web/dist/
+/.playwright-mcp/
+__pycache__/
+re/ghidra/
+re/extracted/
+re/decoded/
+re/work/
+specs/data/drawlog/demos/*.drawlog.xz
+/sessions/*
+!/sessions/README.md
+# not published: process history, personal packaging, screenshots of the original game
+/docs/briefs/
+/docs/archive/
+/packaging/local/
+*.png
+*.jpg
+!/packaging/**/*.png
+/CLAUDE.local.md
+/tools/fmath_xplat/target/
+# I18N G3: thcrap-import caches and packs (default under /target); never commit anything from thpatch.
+*.jpeg
+*.bmp
+*.webp
+/packs/
+/thcrap/
+lang_*/

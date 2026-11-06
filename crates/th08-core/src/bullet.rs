@@ -1,0 +1,2595 @@
+//! Bullet manager 0xF54E90: templates, patterns, ex commands, lasers, cancels (08 §1–§7, 07 §9).
+
+use crate::anmmgr::{AnmManager, Tint};
+use crate::anmvm::{self, AnmVm, Timer};
+use crate::drawlist::{PLAYFIELD, Recorder};
+use crate::fmath::{self, polar, sin_cos_f};
+use crate::game::{Ctx, Sys, View};
+use crate::item::ItemManager;
+use crate::player::{GrazeEnv, Player};
+use crate::task::{self, Chain, Ret, Task};
+use crate::types::{BulletIdx, LaserIdx, angle_from};
+use anyhow::Result;
+use std::f32::consts::PI;
+use std::sync::Arc;
+
+// etama.anm slot (mgr+0x6BA574).
+pub const ANM_SLOT: usize = 6;
+pub const CALC_PRIO: u16 = 14;
+pub const DRAW_PRIO: u16 = 13;
+// Bullets at +0x1A880 (slot 1536 is the state-6 sentinel), lasers at +0x660938.
+pub const MAX_BULLETS: usize = 1536;
+pub const MAX_LASERS: usize = 256;
+pub const TYPES: usize = 21;
+// Main-sprite script per bullet type, exe table 0x4B4AD8.
+const MAIN_SCRIPTS: [usize; TYPES] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 25, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
+];
+// Reduced colour tables 0x4C7138 (16 < h ≤ 32) and 0x4C70F8 (h ≤ 16).
+const COLOR_MID: [i32; 8] = [0, 1, 1, 2, 2, 3, 4, 0];
+const COLOR_SMALL: [i32; 16] = [0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 0];
+// Item type of ordinary cancels, mgr+0x6BA570.
+const CANCEL_ITEM: i32 = 6;
+
+bitflags::bitflags! {
+    // Bullet flag word +0xDB0 (descriptor +0x1FC) and running-command word +0xDAC; one bit per ex command,
+    // the original's bit values.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+    pub struct BulletFlags: u32 {
+        // Ex 0x1: speed-up over 16 frames.
+        const SPEEDUP = 0x1;
+        // Spawn effects VM1 / VM2 / VM3 → states 2 / 3 / 4.
+        const EFFECT1 = 0x2;
+        const EFFECT2 = 0x4;
+        const EFFECT3 = 0x8;
+        const ACCEL = 0x10;
+        const ANGULAR = 0x20;
+        // Redirects: angle + a, angle to the player + a, angle := a.
+        const REDIRECT_REL = 0x40;
+        const REDIRECT_AIM = 0x80;
+        const REDIRECT_ABS = 0x100;
+        // Pattern sfx at spawn.
+        const PATTERN_SFX = 0x200;
+        // Bounce off all four edges / not at the bottom.
+        const BOUNCE = 0x400;
+        const BOUNCE_NO_BOTTOM = 0x800;
+        // Immune to cancels, bomb areas and the cancel guard.
+        const NO_CANCEL = 0x1000;
+        // Off-screen grace (ex 0x2000), retype (0x4000).
+        const GRACE = 0x2000;
+        const RETYPE = 0x4000;
+        const WAIT = 0x2_0000;
+        // Ex 0x40000: straight to state 5.
+        const CANCEL = 0x4_0000;
+        const SOUND = 0x8_0000;
+        const WRAP_X = 0x40_0000;
+        const WRAP_Y = 0x80_0000;
+        const SUB_PATTERN = 0x100_0000;
+    }
+}
+
+bitflags::bitflags! {
+    // Laser flags +0x594; the descriptor word +0x1FC is stored as its low 16 bits.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+    pub struct LaserFlags: u16 {
+        // Alpha fade instead of width (08 §6.3 steps 4 / 6).
+        const ALPHA_FADE = 1 << 0;
+        // Immune to ordinary cancels; spawns during the cancel guard.
+        const NO_CANCEL = 1 << 2;
+    }
+}
+
+// Bullet flag 0x1000 as a raw word, for callers that hold descriptor flags.
+pub const F_NO_CANCEL: u32 = BulletFlags::NO_CANCEL.bits();
+// `active & 0xDC0` of the off-screen rule.
+const REDIRECT_OR_BOUNCE: BulletFlags = BulletFlags::REDIRECT_REL
+    .union(BulletFlags::REDIRECT_AIM)
+    .union(BulletFlags::REDIRECT_ABS)
+    .union(BulletFlags::BOUNCE)
+    .union(BulletFlags::BOUNCE_NO_BOTTOM);
+const BOUNCES: BulletFlags = BulletFlags::BOUNCE.union(BulletFlags::BOUNCE_NO_BOTTOM);
+
+// Index from an i16 / i32 already range-checked or clamped to ≥ 0: the value of `as usize`.
+fn uidx(v: i32) -> usize {
+    v.cast_unsigned() as usize
+}
+
+// Table lookup by a signed index: a negative one is out of range and misses, as with `as usize`.
+fn at<T: Copy>(t: &[T], i: i32) -> Option<T> {
+    t.get(uidx(i)).copied()
+}
+
+// Template index of a type / ex 0x4000 c, clamped into the 21 templates.
+fn template_idx(t: i32) -> usize {
+    uidx(t.max(0)).min(TYPES - 1)
+}
+
+// Bullet slot handle of a pool index (< 1537, fits u16).
+fn bidx(i: usize) -> BulletIdx {
+    BulletIdx(i as u16)
+}
+
+// Inputs shared by every PlaceBullet of one SpawnPattern call (08 §3.1 step 3 → §3.2).
+struct PatternEnv<'a> {
+    d: &'a BulletDesc,
+    // Player_AngleFrom(desc.origin), once per pattern.
+    aim: f32,
+    ppos: [f32; 3],
+}
+
+// Spawn-effect (VM1..VM3) and cancel (VM4) scripts per type.
+fn effect_scripts(t: usize) -> [usize; 4] {
+    match t {
+        0 => [18, 19, 20, 15],
+        7..=9 | 14 | 15 | 18..=20 => [24, 24, 24, 17],
+        10 => [27, 27, 27, 26],
+        _ => [21, 22, 23, 16],
+    }
+}
+
+// Hitbox and size class from the main sprite height and script.
+pub fn hitbox_class(h: f32, s: usize) -> (f32, u8) {
+    if h > 32.0 {
+        (24.0, 0)
+    } else if h > 16.0 {
+        match s {
+            8 | 113 | 114 | 115 => (5.0, 2),
+            9 | 109 | 110 => (8.0, 1),
+            _ => (10.0, 1),
+        }
+    } else if h > 8.0 {
+        // s = 5 falls through to the next case in the original; the net result is the same.
+        match s {
+            2 | 4 | 5 | 6 | 106 | 107 | 108 | 111 | 112 => (4.0, 4),
+            _ => (6.0, 3),
+        }
+    } else {
+        (4.0, 5)
+    }
+}
+
+// Reduced colour index for the cancel/effect VMs.
+fn effect_color(h: u8, colour: i16) -> i32 {
+    let c = i32::from(colour);
+    if h > 32 {
+        c
+    } else if h > 16 {
+        at(&COLOR_MID, c).unwrap_or(0)
+    } else {
+        at(&COLOR_SMALL, c).unwrap_or(0)
+    }
+}
+
+// One extra-command slot, 24 bytes, filled by ECL op 111 (07 §7).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ExCmd {
+    pub e: f32,
+    pub f: f32,
+    pub c: i32,
+    pub d: i32,
+    // +0x10 command bit; only runs if the bullet's flags contain it.
+    pub cmd: u32,
+    // +0x14: 0 = wait until no command is active.
+    pub chain: i32,
+}
+
+// ECL bullet descriptor (enemy +0x2E24, 0x210 bytes) with rank scaling already applied (07 §9.2).
+#[derive(Clone, Debug, PartialEq)]
+pub struct BulletDesc {
+    // +0 type (sprite group), +2 colour.
+    pub kind: i16,
+    pub colour: i16,
+    pub origin: [f32; 3],
+    // +0x10/+0x14 radians, +0x18/+0x1C px/frame.
+    pub angle1: f32,
+    pub angle2: f32,
+    pub speed1: f32,
+    pub speed2: f32,
+    // +0x20: 18 × 24 B.
+    pub ex: [ExCmd; 18],
+    pub count1: i16,
+    pub count2: i16,
+    // +0x1F8 = ECL op − 96 (07 §9.3).
+    pub aim_mode: i16,
+    // +0x1FC (ECL bullet instruction +0x28).
+    pub flags: u32,
+    // +0x200 pattern sfx (template 7), +0x204 ex-command sfx (template 25, 07 §4.2).
+    pub sfx: i32,
+    pub ex_sfx: i32,
+    // +0x208 first ex slot.
+    pub ex_start: i32,
+}
+
+impl Default for BulletDesc {
+    fn default() -> Self {
+        Self {
+            kind: 0,
+            colour: 0,
+            origin: [0.0; 3],
+            angle1: 0.0,
+            angle2: 0.0,
+            speed1: 0.0,
+            speed2: 0.0,
+            ex: [ExCmd::default(); 18],
+            count1: 0,
+            count2: 0,
+            aim_mode: 0,
+            flags: 0,
+            sfx: 7,
+            ex_sfx: 25,
+            ex_start: 0,
+        }
+    }
+}
+
+// ECL laser descriptor (enemy +0x3070, 07 §9.4); `fixed` = op 114 (desc +0x1F8 = 1, no aiming).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LaserDesc {
+    pub kind: i16,
+    pub colour: i16,
+    pub origin: [f32; 3],
+    pub angle: f32,
+    pub speed: f32,
+    pub tail: f32,
+    pub head: f32,
+    pub max_len: f32,
+    pub width: f32,
+    pub startup: i32,
+    pub duration: i32,
+    pub fade: i32,
+    pub hit_start: i32,
+    pub fade_hit: i32,
+    pub flags: u32,
+    pub fixed: bool,
+}
+
+// Bullet template 0xD44.
+#[derive(Clone, Debug, Default)]
+pub struct Template {
+    // VM0 main sprite, VM1–3 spawn effects (flags 2/4/8), VM4 cancel animation.
+    pub vms: [AnmVm; 5],
+    // +0xD34 px (width = height).
+    pub hitbox: f32,
+    // +0xD42 size class (draw bucket).
+    pub class: u8,
+    // +0xD41 trunc(main sprite height).
+    pub height: u8,
+}
+
+// Extra-command state blocks +0xF80 + 0x2C·k; 0x40/0x80/0x100 share block k3.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ExState {
+    pub speedup: Timer,
+    pub accel_timer: Timer,
+    pub accel: f32,
+    pub accel_angle: f32,
+    pub avec: [f32; 3],
+    pub accel_dur: i32,
+    pub ang_timer: Timer,
+    pub dspeed: f32,
+    pub dangle: f32,
+    pub ang_dur: i32,
+    pub redir_timer: Timer,
+    pub new_speed: f32,
+    pub redir_a: f32,
+    pub period: i32,
+    pub count: i32,
+    pub redirs: i32,
+    pub bspeed: f32,
+    pub bounces: i32,
+    pub max_bounces: i32,
+    pub wait: Timer,
+    pub wrap: Timer,
+}
+
+// Bullet object 0x10B8; the first 0xD44 bytes are a template copy.
+#[derive(Clone, Debug, Default)]
+pub struct Bullet {
+    pub vms: [AnmVm; 5],
+    pub hitbox: f32,
+    pub class: u8,
+    pub height: u8,
+    // +0xD44 playfield px; z 0.1 at spawn.
+    pub pos: [f32; 3],
+    // +0xD50 per-frame displacement, already × gs.
+    pub vel: [f32; 3],
+    pub speed: f32,
+    // +0xD74 radians.
+    pub angle: f32,
+    // +0xD80, reset on entering state 1.
+    pub state_timer: Timer,
+    // +0xD8C; graze only after 15 frames.
+    pub age: Timer,
+    // +0xDA8 frames with the off-screen check skipped (ex 0x2000).
+    pub grace: i32,
+    // +0xDAC bits of running ex commands.
+    pub active: BulletFlags,
+    // +0xDB0 descriptor flags; raw for the ECL natives (07 §12), typed through `bflags()`.
+    pub flags: u32,
+    pub colour: i16,
+    // +0xDB8: 0 free, 1 normal, 2/3/4 spawn effect, 5 cancelling, 6 sentinel.
+    pub state: i16,
+    // +0xDBA off-screen counter; kept by spawn and a normal free, zeroed by the cancels.
+    pub off_count: i16,
+    pub grazed: bool,
+    // +0xDBE: sticky "in a bomb area during the spawn effect".
+    pub cancel_after_spawn: bool,
+    // +0xDC8 ex sfx (−1 none), +0xDCC next ex slot.
+    pub ex_sfx: i32,
+    pub ex_index: i32,
+    pub ex: [ExCmd; 18],
+    pub st: ExState,
+    // +0x10B4: no graze/hit (natives 12/14).
+    pub intangible: bool,
+    // +0xDC4 warp cooldown of natives 4 / 7 / 21 (07 §12): 0 at spawn, 2 after a warp.
+    pub warp_cooldown: i32,
+    // VM0 +0x218 saved_sprite (05 §2): set at spawn and by native 28, restored by native 29 (07 §12).
+    pub saved_sprite: i16,
+    // Index of the spawn-effect VM (1–3) for states 2–4.
+    effect: usize,
+}
+
+// Warp constants of natives 4 / 7 / 21 (07 §12); rectangles are (x0, x1, y0, y1), tested strictly.
+pub struct Warp {
+    pub c: [f32; 2],
+    pub inner: [f32; 4],
+    pub outer: [f32; 4],
+    // Outer rectangle for the previous position; differs only for native 7 (x0 −31.1, QUIRK).
+    pub outer_prev: [f32; 4],
+    pub k_inner: f32,
+    pub k_outer: f32,
+}
+
+impl Warp {
+    // Zone 0 inner, 1 outer, 2 outside.
+    fn zone(&self, x: f32, y: f32, outer: [f32; 4]) -> u8 {
+        let within = |r: [f32; 4]| r[0] < x && x < r[1] && r[2] < y && y < r[3];
+        if within(self.inner) {
+            0
+        } else if within(outer) {
+            1
+        } else {
+            2
+        }
+    }
+
+    // Native 4: c (192, 208).
+    pub fn native4() -> Warp {
+        let outer = f32s([0x4260_F124, 0x43A3_E1DC, 0x4290_7892, 0x43AB_E1DC]);
+        Warp {
+            c: [192.0, 208.0],
+            inner: f32s([0x42F8_3C49, 0x4381_F0EE, 0x430C_1E24, 0x4389_F0EE]),
+            outer,
+            outer_prev: outer,
+            k_inner: f32::from_bits(0x4287_C3B7),
+            k_outer: f32::from_bits(0x4307_C3B7),
+        }
+    }
+
+    // Native 7: c (192, 224).
+    pub fn native7() -> Warp {
+        let outer = [-32.0, 416.0, 0.0, 448.0];
+        Warp {
+            c: [192.0, 224.0],
+            inner: f32s([0x4260_F124, 0x43A3_E1DC, 0x42B0_7892, 0x43B3_E1DC]),
+            outer,
+            outer_prev: [f32::from_bits(0xC1F8_CCD0), 416.0, 0.0, 448.0],
+            k_inner: f32::from_bits(0x4307_C3B7),
+            k_outer: 224.0,
+        }
+    }
+
+    // Native 21: c (192, 208).
+    pub fn native21() -> Warp {
+        let outer = f32s([0x4206_6EAA, 0x43AF_322B, 0x4246_6EAA, 0x43B7_322B]);
+        Warp {
+            c: [192.0, 208.0],
+            inner: f32s([0x42E1_9BAA, 0x4387_9915, 0x4300_CDD5, 0x438F_9915]),
+            outer,
+            outer_prev: outer,
+            k_inner: f32::from_bits(0x429E_6456),
+            k_outer: f32::from_bits(0x431E_6456),
+        }
+    }
+}
+
+fn f32s(b: [u32; 4]) -> [f32; 4] {
+    b.map(f32::from_bits)
+}
+
+impl Bullet {
+    pub fn free(&self) -> bool {
+        self.state == 0
+    }
+
+    // +0xDB0 as flags; every bit kept (`from_bits_retain`, the word comes from ECL).
+    pub fn bflags(&self) -> BulletFlags {
+        BulletFlags::from_bits_retain(self.flags)
+    }
+
+    // Lacks flag 0x1000: subject to cancels, bomb areas and the cancel guard.
+    fn cancellable(&self) -> bool {
+        !self.bflags().contains(BulletFlags::NO_CANCEL)
+    }
+
+    // GameMgr_IsOnScreen with the current main sprite's size.
+    fn on_screen(&self) -> bool {
+        let (hw, hh) = (self.vms[0].sprite_w / 2.0, self.vms[0].sprite_h / 2.0);
+        let [x, y, _] = self.pos;
+        x + hw >= 0.0 && x - hw <= 384.0 && y + hh >= 0.0 && y - hh <= 448.0
+    }
+
+    // Square hitbox (template +0xD34).
+    fn size(&self) -> [f32; 2] {
+        [self.hitbox; 2]
+    }
+}
+
+// Laser object 0x59C; lengths in px along the laser from the origin, times in frames.
+#[derive(Clone, Debug, Default)]
+pub struct Laser {
+    pub body: AnmVm,
+    pub emitter: AnmVm,
+    pub origin: [f32; 3],
+    pub angle: f32,
+    pub tail: f32,
+    pub head: f32,
+    pub max_len: f32,
+    pub width: f32,
+    pub cur_width: f32,
+    // +0x56C head growth per frame.
+    pub speed: f32,
+    pub startup: i32,
+    // +0x574 collision start, frames into startup.
+    pub hit_start: i32,
+    pub duration: i32,
+    pub fade: i32,
+    // +0x580 collision frames during fade-out.
+    pub fade_hit: i32,
+    pub alive: bool,
+    pub timer: Timer,
+    // +0x594.
+    pub flags: LaserFlags,
+    pub colour: i16,
+    // +0x598: 0 startup, 1 active, 2 fade.
+    pub state: u8,
+    // +0x599 (ECL op 170): emitter hidden during startup when ≠ 0.
+    pub hide_emitter: u8,
+}
+
+impl Laser {
+    // Emitter drawn while the tail is near the origin or the laser does not move, unless hidden during startup.
+    fn emitter_drawn(&self) -> bool {
+        (self.tail < 16.0 || self.speed == 0.0) && (self.hide_emitter == 0 || self.state != 0)
+    }
+
+    // Collision (08 §6.3 step 2) through `Player_LaserTest` (09 §6.1) with c = (origin.x + tail + L/2, origin.y);
+    // returns the time orbs of a graze.
+    fn test(
+        &self,
+        p: &mut Player,
+        size: [f32; 2],
+        graze: bool,
+        env: &GrazeEnv,
+        anm: &mut AnmManager,
+        sys: &mut Sys,
+    ) -> u8 {
+        let len = self.head - self.tail;
+        let c = [self.origin[0] + self.tail + len / 2.0, self.origin[1]];
+        let o = [self.origin[0], self.origin[1]];
+        p.laser_test(c, size, o, self.angle, graze, env, anm, sys).1
+    }
+}
+
+// Bullet manager 0xF54E90. Templates are written once by BulletManager_Load and shared by clones.
+#[derive(Clone)]
+pub struct BulletManager {
+    pub templates: Arc<[Template]>,
+    pub bullets: Vec<Bullet>,
+    pub lasers: Vec<Laser>,
+    // Updated from inside the bullet calc and drawn from its draw.
+    pub items: ItemManager,
+    // +0x6BA538 = 0x160F3C8 live-bullet count from the last calc.
+    pub live: usize,
+    // +0x6BA53C, frames: set to 10 by every mass cancel.
+    pub cancel_guard: i32,
+    // +0x6BA540 / +0x6BA54C.
+    pub timer: Timer,
+    pub frame: i32,
+    // +0x6BA554 draw lists per size class.
+    lists: [Vec<BulletIdx>; 6],
+    // +0x6BA56C allocation cursor.
+    cursor: usize,
+    pub env: GrazeEnv,
+    // GameFlags bit 10: the whole calc is skipped.
+    pub frozen: bool,
+    // Port-only count of SpawnPattern calls.
+    pub patterns: u64,
+}
+
+impl BulletManager {
+    // BulletManager_Load 0x433070: one template per type with its 5 VMs (etama.anm in ANM_SLOT).
+    pub fn new(anm: &mut AnmManager, rng: &mut crate::rng::Rng) -> Self {
+        let templates = (0..TYPES)
+            .map(|t| {
+                let s = MAIN_SCRIPTS[t];
+                let e = effect_scripts(t);
+                let vms = [s, e[0], e[1], e[2], e[3]].map(|sc| {
+                    let mut vm = AnmVm::default();
+                    anm.set_script(rng, &mut vm, ANM_SLOT, sc);
+                    vm.flags |= anmvm::F_ZWRITE_OFF;
+                    vm
+                });
+                let h = vms[0].sprite_h;
+                let (hitbox, class) = hitbox_class(h, s);
+                #[expect(
+                    clippy::cast_sign_loss,
+                    reason = "08 §2.1 +0xD41 = ftol(sprite height)"
+                )]
+                let height = h as u8;
+                Template {
+                    vms,
+                    hitbox,
+                    class,
+                    height,
+                }
+            })
+            .collect();
+        let mut bullets = vec![Bullet::default(); MAX_BULLETS + 1];
+        bullets[MAX_BULLETS].state = 6;
+        Self {
+            templates,
+            bullets,
+            lasers: vec![Laser::default(); MAX_LASERS],
+            items: ItemManager::default(),
+            live: 0,
+            cancel_guard: 0,
+            timer: Timer::default(),
+            frame: 0,
+            lists: Default::default(),
+            cursor: 0,
+            env: GrazeEnv::default(),
+            frozen: false,
+            patterns: 0,
+        }
+    }
+
+    // BulletManager_Register: the manager becomes `ctx.w.bullets` (replacing the last stage's) plus its two nodes.
+    pub fn register(ctx: &mut Ctx) -> Result<crate::chain::Node> {
+        ctx.w
+            .anm
+            .load(&mut ctx.rec, &ctx.archive, ANM_SLOT, "etama.anm")?;
+        ctx.w.bullets = Some(Box::new(BulletManager::new(&mut ctx.w.anm, &mut ctx.w.rng)));
+        let t = crate::chain::Node::Bullets;
+        task::add(ctx, Chain::Calc, CALC_PRIO, 0, t)?;
+        task::add(ctx, Chain::Draw, DRAW_PRIO, 0, t)?;
+        Ok(t)
+    }
+
+    pub fn live_bullets(&self) -> impl Iterator<Item = &Bullet> {
+        self.bullets[..MAX_BULLETS].iter().filter(|b| !b.free())
+    }
+
+    // BulletMgr_SpawnPattern 0x430E10: stops at the first failed placement.
+    pub fn spawn_pattern(
+        &mut self,
+        anm: &mut AnmManager,
+        d: &BulletDesc,
+        ppos: [f32; 3],
+        sys: &mut Sys,
+    ) {
+        self.patterns += 1;
+        if self.live >= MAX_BULLETS {
+            return;
+        }
+        let env = PatternEnv {
+            d,
+            aim: angle_from(d.origin, ppos),
+            ppos,
+        };
+        for j in 0..i32::from(d.count2.max(0)) {
+            for i in 0..i32::from(d.count1.max(0)) {
+                if !self.place(anm, &env, i, j, sys) {
+                    return;
+                }
+            }
+        }
+        if BulletFlags::from_bits_retain(d.flags).contains(BulletFlags::PATTERN_SFX) {
+            sys.sound.play_at(d.sfx, d.origin[0]);
+        }
+    }
+
+    // Speed and angle of bullet (i, j). RNG: mode 6 one Float, 7 one, 8 angle first then speed.
+    fn pattern_angle(
+        rng: &mut crate::rng::Rng,
+        d: &BulletDesc,
+        i: i32,
+        j: i32,
+        aim: f32,
+    ) -> (f32, f32) {
+        let (c1, c2) = (i32::from(d.count1), i32::from(d.count2));
+        let (a1, a2) = (d.angle1, d.angle2);
+        let tau = 2.0 * PI;
+        let mut speed = if c2 < 2 {
+            d.speed1
+        } else {
+            d.speed1 - (d.speed1 - d.speed2) * j as f32 / c2 as f32
+        };
+        let ring = j as f32 * a2 + a1 + i as f32 * tau / c1 as f32;
+        let angle = match d.aim_mode {
+            0 | 1 => {
+                let mut k = if c1 % 2 == 0 {
+                    a2 / 2.0 + (i / 2) as f32 * a2
+                } else {
+                    ((i + 1) / 2) as f32 * a2
+                };
+                if i % 2 == 1 {
+                    k = -k;
+                }
+                // Op 96: (k + aim) + a1, aim before a1 (f32 rounding per step).
+                if d.aim_mode == 0 {
+                    (k + aim) + a1
+                } else {
+                    k + a1
+                }
+            }
+            // Op 98: (j·a2 + a1) + (ring term + (0 + aim)); accumulator starts at 0.0.
+            2 => (j as f32 * a2 + a1) + (i as f32 * tau / c1 as f32 + (0.0 + aim)),
+            3 => ring,
+            // Op 100: ((i·2π)/c1 + (π/c1 + (0 + aim))) + a1.
+            4 => (i as f32 * tau / c1 as f32 + (PI / c1 as f32 + (0.0 + aim))) + a1,
+            5 => i as f32 * tau / c1 as f32 + PI / c1 as f32 + a1,
+            6 => rng.next_f32() * (a1 - a2) + a2,
+            7 => {
+                speed = rng.next_f32() * (d.speed1 - d.speed2) + d.speed2;
+                ring
+            }
+            _ => {
+                let a = rng.next_f32() * (a1 - a2) + a2;
+                speed = rng.next_f32() * (d.speed1 - d.speed2) + d.speed2;
+                a
+            }
+        };
+        (speed, angle)
+    }
+
+    fn recolor(anm: &AnmManager, vm: &mut AnmVm, base: &AnmVm, k: i32) {
+        *vm = base.clone();
+        vm.set_sprite(anm, i32::from(base.sprite_index) + k);
+    }
+
+    // Slot search of BulletMgr_PlaceBullet: from the cursor over 1536 slots; the sentinel wraps to 0.
+    fn free_slot(&self) -> Option<BulletIdx> {
+        let mut idx = self.cursor;
+        for _ in 0..MAX_BULLETS {
+            if idx >= MAX_BULLETS {
+                idx = 0;
+            }
+            if self.bullets[idx].free() {
+                return Some(bidx(idx));
+            }
+            idx += 1;
+        }
+        None
+    }
+
+    // BulletMgr_PlaceBullet 0x42F5F0.
+    fn place(
+        &mut self,
+        anm: &mut AnmManager,
+        env: &PatternEnv,
+        i: i32,
+        j: i32,
+        sys: &mut Sys,
+    ) -> bool {
+        let d = env.d;
+        let Some(idx) = self.free_slot() else {
+            return false;
+        };
+        let (speed, angle) = Self::pattern_angle(sys.rng, d, i, j, env.aim);
+        let gs = anm.speed;
+        let t = &self.templates[template_idx(i32::from(d.kind))];
+        let b = &mut self.bullets[idx.idx()];
+        b.state = 1;
+        b.grazed = false;
+        b.cancel_after_spawn = false;
+        b.state_timer = Timer::default();
+        b.age = Timer::default();
+        b.intangible = false;
+        b.warp_cooldown = 0;
+        b.speed = speed;
+        b.angle = anmvm::wrap_add(angle, 0.0);
+        b.pos = [d.origin[0], d.origin[1], 0.1];
+        // Velocity from the unwrapped pattern angle; only the stored angle is wrapped (f32 last bits).
+        b.vel = polar(angle, speed * gs);
+        b.vms[0] = t.vms[0].clone();
+        b.hitbox = t.hitbox;
+        b.class = t.class;
+        b.height = t.height;
+        b.ex_sfx = d.ex_sfx;
+        b.grace = 0;
+        b.colour = d.colour;
+        if b.vms[0].sprite_index != t.vms[0].sprite_index + d.colour {
+            b.vms[0].set_sprite(anm, i32::from(t.vms[0].sprite_index) + i32::from(d.colour));
+        }
+        // +0x218 (05 §2): the template's base (colour 0) sprite; the colour SetSprite above does not write it.
+        b.saved_sprite = t.vms[0].sprite_index;
+        let k = effect_color(t.height, d.colour);
+        Self::recolor(anm, &mut b.vms[4], &t.vms[4], k);
+        let fl = BulletFlags::from_bits_retain(d.flags);
+        let eff = if fl.contains(BulletFlags::EFFECT1) {
+            Some((2, 1))
+        } else if fl.contains(BulletFlags::EFFECT2) {
+            Some((3, 2))
+        } else if fl.contains(BulletFlags::EFFECT3) {
+            Some((4, 3))
+        } else {
+            None
+        };
+        if let Some((state, v)) = eff {
+            b.state = state;
+            b.effect = v;
+            Self::recolor(anm, &mut b.vms[v], &t.vms[v], k);
+            // The spawn effect starts 4 frames back along the velocity.
+            for a in 0..3 {
+                b.pos[a] -= 4.0 * b.vel[a];
+            }
+        }
+        b.ex = d.ex;
+        b.flags = d.flags;
+        b.active = BulletFlags::empty();
+        b.ex_index = d.ex_start;
+        b.st = ExState::default();
+        // Ex commands run once at placement, before the cancel-guard test.
+        self.apply_ex(anm, idx, env.ppos, sys);
+        let b = &mut self.bullets[idx.idx()];
+        if self.cancel_guard > 0 && b.cancellable() {
+            b.state = 5;
+        }
+        self.cursor = if idx.idx() + 1 >= MAX_BULLETS {
+            0
+        } else {
+            idx.idx() + 1
+        };
+        true
+    }
+
+    // Bullet_ApplyExCmds 0x42FFC0: the slot loop; `cont` true = "→ continue" commands of the table.
+    fn apply_ex(&mut self, anm: &mut AnmManager, idx: BulletIdx, ppos: [f32; 3], sys: &mut Sys) {
+        let gs = anm.speed;
+        loop {
+            let b = &mut self.bullets[idx.idx()];
+            let k = b.ex_index;
+            if !(0..=17).contains(&k) {
+                return;
+            }
+            let s = b.ex[uidx(k)];
+            if s.cmd == 0 || (s.chain == 0 && !b.active.is_empty()) {
+                return;
+            }
+            let cmd = BulletFlags::from_bits_retain(s.cmd);
+            if !b.bflags().intersects(cmd) {
+                b.ex_index += 1;
+                continue;
+            }
+            b.ex_index += 1;
+            let cont = match cmd {
+                BulletFlags::GRACE => {
+                    b.grace = s.c;
+                    true
+                }
+                BulletFlags::RETYPE => {
+                    self.retype(anm, idx, s);
+                    true
+                }
+                BulletFlags::SOUND => {
+                    sys.sound.play_at(s.c, b.pos[0]);
+                    true
+                }
+                BulletFlags::SUB_PATTERN => {
+                    if self.sub_pattern(anm, idx, s, k, ppos, sys) {
+                        return;
+                    }
+                    true
+                }
+                _ => {
+                    Self::start_ex(b, cmd, s, k, gs, sys.sound);
+                    false
+                }
+            };
+            if !cont {
+                return;
+            }
+        }
+    }
+
+    // The "→ return" commands of the ex table: start a motion handler (active |= cmd) or cancel; other bits do nothing.
+    fn start_ex(
+        b: &mut Bullet,
+        cmd: BulletFlags,
+        s: ExCmd,
+        k: i32,
+        gs: f32,
+        sound: &mut crate::sound::Queue,
+    ) {
+        match cmd {
+            BulletFlags::SPEEDUP => {
+                b.active |= cmd;
+                b.st.speedup = Timer::default();
+            }
+            BulletFlags::ACCEL => {
+                b.active |= cmd;
+                b.st.accel = s.e;
+                b.st.accel_angle = if s.f > -990.0 { s.f } else { b.angle };
+                b.st.accel_dur = s.c;
+                b.st.avec = polar(b.st.accel_angle, s.e * gs);
+                b.st.accel_timer = Timer::default();
+                if k != 0 {
+                    ex_sound(b.ex_sfx, sound);
+                }
+            }
+            BulletFlags::ANGULAR => {
+                b.active |= cmd;
+                b.st.dspeed = s.e;
+                b.st.dangle = s.f;
+                b.st.ang_dur = s.c;
+                b.st.ang_timer = Timer::default();
+                if k != 0 {
+                    ex_sound(b.ex_sfx, sound);
+                }
+            }
+            BulletFlags::REDIRECT_REL | BulletFlags::REDIRECT_AIM | BulletFlags::REDIRECT_ABS => {
+                b.active |= cmd;
+                b.st.redir_a = s.e;
+                b.st.new_speed = if s.f > -999.0 { s.f } else { b.speed };
+                b.st.period = s.c;
+                b.st.count = s.d;
+                b.st.redirs = 0;
+                b.st.redir_timer = Timer::default();
+            }
+            BulletFlags::BOUNCE | BulletFlags::BOUNCE_NO_BOTTOM => {
+                b.active |= cmd;
+                b.st.bspeed = if s.e >= 0.0 { s.e } else { b.speed };
+                b.st.max_bounces = s.c;
+                b.st.bounces = 0;
+            }
+            BulletFlags::WAIT => {
+                b.active |= cmd;
+                b.st.wait.set(s.c);
+            }
+            BulletFlags::CANCEL => b.state = 5,
+            BulletFlags::WRAP_X | BulletFlags::WRAP_Y => {
+                b.active |= cmd;
+                b.st.wrap.set(s.c);
+            }
+            _ => {}
+        }
+    }
+
+    // Ex 0x4000: template c copied over the bullet's first 0xD44 bytes; VM0 sprite += d.
+    fn retype(&mut self, anm: &AnmManager, idx: BulletIdx, s: ExCmd) {
+        let t = &self.templates[template_idx(s.c)];
+        let b = &mut self.bullets[idx.idx()];
+        b.vms = t.vms.clone();
+        b.hitbox = t.hitbox;
+        b.class = t.class;
+        b.height = t.height;
+        let sp = i32::from(b.vms[0].sprite_index) + s.d;
+        b.vms[0].set_sprite(anm, sp);
+    }
+
+    // Ex 0x1000000 sub-pattern: slot A = this, B = next; no rank adjustment. True when A.c bit 31 put
+    // this bullet into state 5, which ends the slot loop.
+    fn sub_pattern(
+        &mut self,
+        anm: &mut AnmManager,
+        idx: BulletIdx,
+        s: ExCmd,
+        k: i32,
+        ppos: [f32; 3],
+        sys: &mut Sys,
+    ) -> bool {
+        let b = &mut self.bullets[idx.idx()];
+        let nb = b.ex.get(uidx(k) + 1).copied().unwrap_or_default();
+        let mut d = BulletDesc {
+            kind: ((s.c >> 16) & 0xFF) as i16,
+            colour: ((s.c >> 8) & 0xFF) as i16,
+            aim_mode: ((s.c >> 24) & 0x7F) as i16,
+            ex_start: s.c & 0xFF,
+            origin: b.pos,
+            speed1: s.e,
+            speed2: s.f,
+            count1: s.d as i16,
+            angle1: nb.e,
+            angle2: nb.f,
+            count2: nb.c as i16,
+            flags: nb.d.cast_unsigned(),
+            ex: b.ex,
+            sfx: 0,
+            ex_sfx: -1,
+        };
+        d.origin[2] = 0.0;
+        b.ex_index += 1;
+        // A.c bit 31: this bullet → state 5.
+        let kill = s.c < 0;
+        self.spawn_pattern(anm, &d, ppos, sys);
+        if kill {
+            self.bullets[idx.idx()].state = 5;
+        }
+        kill
+    }
+
+    // Motion handlers for every running extra command, in the order of 08 §4.1 step 2.
+    fn motion(b: &mut Bullet, gs: f32, sr: bool, ppos: [f32; 3], sys: &mut Sys) {
+        let st = &mut b.st;
+        if b.active.contains(BulletFlags::SPEEDUP) {
+            // t includes the sub-frame part at game speed < 1.
+            if st.speedup.cur <= 16 {
+                b.vel = polar(
+                    b.angle,
+                    (5.0 - 5.0 * st.speedup.getf() / 16.0 + b.speed) * gs,
+                );
+            } else {
+                b.active.remove(BulletFlags::SPEEDUP);
+            }
+            st.speedup.tick(gs);
+        }
+        if b.active.contains(BulletFlags::ACCEL) {
+            if st.accel_timer.cur >= st.accel_dur {
+                b.active.remove(BulletFlags::ACCEL);
+            } else {
+                for a in 0..3 {
+                    b.vel[a] += st.avec[a] * gs;
+                }
+                if b.vel[0].abs() > 0.0001 || b.vel[1].abs() > 0.0001 {
+                    b.angle = fmath::atan2_f(b.vel[1], b.vel[0]);
+                }
+            }
+            st.accel_timer.tick(gs);
+        }
+        if b.active.contains(BulletFlags::ANGULAR) {
+            if st.ang_timer.cur >= st.ang_dur {
+                b.active.remove(BulletFlags::ANGULAR);
+            } else {
+                b.angle = anmvm::wrap_add(b.angle, gs * st.dangle);
+                b.speed += gs * st.dspeed;
+                b.vel = polar(b.angle, gs * b.speed);
+            }
+            st.ang_timer.tick(gs);
+        }
+        // `speed` is unchanged while decelerating; 0x40 adds without wrapping.
+        for bit in [
+            BulletFlags::REDIRECT_REL,
+            BulletFlags::REDIRECT_ABS,
+            BulletFlags::REDIRECT_AIM,
+        ] {
+            if !b.active.contains(bit) {
+                continue;
+            }
+            let t = st.redir_timer.getf();
+            let s = if st.redir_timer.cur < st.period {
+                b.speed - t * b.speed / st.period as f32
+            } else {
+                ex_sound(b.ex_sfx, sys.sound);
+                st.redirs += 1;
+                if st.redirs >= st.count {
+                    b.active.remove(bit);
+                }
+                b.angle = match bit {
+                    BulletFlags::REDIRECT_REL => b.angle + st.redir_a,
+                    BulletFlags::REDIRECT_ABS => st.redir_a,
+                    _ => anmvm::wrap_add(angle_from(b.pos, ppos) + st.redir_a, 0.0),
+                };
+                b.speed = st.new_speed;
+                st.redir_timer = Timer::default();
+                b.speed
+            };
+            b.vel = polar(b.angle, s * gs);
+            st.redir_timer.tick(gs);
+        }
+        // Bounce only while off screen; 0x800 does not reflect at the bottom but still counts.
+        if b.active.intersects(BOUNCES) && !b.on_screen() {
+            ex_sound(b.ex_sfx, sys.sound);
+            let [x, y, _] = b.pos;
+            if x < 0.0 || x >= 384.0 {
+                b.angle = anmvm::wrap_add(-b.angle - PI, 0.0);
+            }
+            if y < 0.0 || (y >= 448.0 && b.active.contains(BulletFlags::BOUNCE)) {
+                b.angle = -b.angle;
+            }
+            let st = &mut b.st;
+            b.speed = st.bspeed;
+            b.vel = polar(b.angle, b.speed * gs);
+            st.bounces += 1;
+            if st.bounces >= st.max_bounces {
+                b.active.remove(BOUNCES);
+            }
+        }
+        let st = &mut b.st;
+        // Wrap X / Y share one timer (block k6), so with both bits it is decremented twice.
+        for (bit, axis, len) in [
+            (BulletFlags::WRAP_X, 0, 384.0),
+            (BulletFlags::WRAP_Y, 1, 448.0),
+        ] {
+            if !b.active.contains(bit) {
+                continue;
+            }
+            if b.pos[axis] < 0.0 {
+                b.pos[axis] += len;
+            } else if b.pos[axis] > len {
+                b.pos[axis] -= len;
+            }
+            if st.wrap.cur <= 0 {
+                b.active.remove(bit);
+            } else {
+                st.wrap.dec(gs, sr);
+            }
+        }
+        if b.active.contains(BulletFlags::WAIT) {
+            if st.wait.cur <= 0 {
+                b.active.remove(BulletFlags::WAIT);
+            } else {
+                st.wait.dec(gs, sr);
+            }
+        }
+    }
+
+    // Bomb drop: item type player+0xE2A90; 9 → two time orbs, −1 → none; item mode 1.
+    fn bomb_drop(
+        items: &mut ItemManager,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        p: &Player,
+        pos: [f32; 3],
+    ) {
+        match p.cancel_item {
+            9 => {
+                items.spawn(anm, rng, p, pos, 7, 1);
+                items.spawn(anm, rng, p, pos, 7, 1);
+            }
+            k if k >= 0 => {
+                items.spawn(anm, rng, p, pos, k, 1);
+            }
+            _ => {}
+        }
+    }
+
+    // Push on the size-class draw list.
+    fn push(&mut self, idx: BulletIdx) {
+        let c = usize::from(self.bullets[idx.idx()].class).min(5);
+        self.lists[c].push(idx);
+    }
+
+    // State 1; returns false when the bullet was freed.
+    fn update_normal(
+        &mut self,
+        anm: &mut AnmManager,
+        idx: BulletIdx,
+        p: &mut Player,
+        sys: &mut Sys,
+    ) -> bool {
+        let gs = anm.speed;
+        let i = idx.idx();
+        self.apply_ex(anm, idx, p.pos, sys);
+        // Freeze byte 0x160F534 (native 26) stops step 4 only.
+        let freeze = *sys.timer_pause != 0;
+        let b = &mut self.bullets[i];
+        if !b.active.is_empty() {
+            Self::motion(b, gs, anm.slowdown_restore, p.pos, sys);
+        }
+        if b.grace > 0 {
+            b.grace -= 1;
+        }
+        if !freeze {
+            for a in 0..3 {
+                b.pos[a] += b.vel[a];
+            }
+        }
+        if b.grace == 0 {
+            if b.on_screen() {
+                b.off_count = 0;
+            } else if !b.active.intersects(REDIRECT_OR_BOUNCE) {
+                if b.off_count > 0 {
+                    b.off_count -= 1;
+                } else {
+                    b.state = 0;
+                    return false;
+                }
+            } else {
+                b.off_count += 1;
+                if b.off_count >= 128 {
+                    b.state = 0;
+                    return false;
+                }
+            }
+        }
+        if !b.intangible {
+            let (pos, size) = (b.pos, b.size());
+            let mut hit_test = true;
+            // 08 §4.1 step 6: graze 1 → hit test; 2 (bomb area) → cancel, no hit test; 0 → no hit test.
+            if !b.grazed && b.age.cur > 15 {
+                let (g, orbs) = p.graze_test(pos, size, &self.env, anm, sys);
+                match g {
+                    1 => {
+                        self.bullets[i].grazed = true;
+                        // Graze time orbs, item type 10 (08 §8.3).
+                        for _ in 0..orbs {
+                            self.items.spawn(anm, sys.rng, p, pos, 10, 0);
+                        }
+                    }
+                    2 => {
+                        hit_test = false;
+                        if self.bullets[i].cancellable() {
+                            self.bullets[i].state = 5;
+                            Self::bomb_drop(&mut self.items, anm, sys.rng, p, pos);
+                        }
+                    }
+                    _ => hit_test = false,
+                }
+            }
+            if hit_test {
+                match p.hit_test(pos, size, anm, sys) {
+                    1 => {
+                        self.bullets[i].state = 5;
+                        if std::mem::take(&mut p.drop_attracted) {
+                            self.items.drop_attracted();
+                        }
+                    }
+                    2 if self.bullets[i].cancellable() => {
+                        self.bullets[i].state = 5;
+                        Self::bomb_drop(&mut self.items, anm, sys.rng, p, pos);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let b = &mut self.bullets[i];
+        if b.vms[0].script.is_some() {
+            b.vms[0].run(anm, sys.rng);
+        }
+        b.state_timer.tick(gs);
+        b.age.tick(gs);
+        self.push(idx);
+        true
+    }
+
+    fn update_bullet(
+        &mut self,
+        anm: &mut AnmManager,
+        idx: BulletIdx,
+        p: &mut Player,
+        sys: &mut Sys,
+    ) {
+        let gs = anm.speed;
+        let i = idx.idx();
+        match self.bullets[i].state {
+            1 => {
+                self.update_normal(anm, idx, p, sys);
+            }
+            // Spawn effect: the age does not advance net.
+            2..=4 => {
+                let b = &mut self.bullets[i];
+                b.age.dec(gs, anm.slowdown_restore);
+                // Vec3_DivScalar multiplies by f32(1/d), not vel / d (1 ulp apart for d = 3).
+                let r = 1.0f32 / [2.0f32, 2.5, 3.0][usize::from((b.state - 2).cast_unsigned())];
+                for a in 0..3 {
+                    b.pos[a] += b.vel[a] * r;
+                }
+                if b.cancellable() && p.in_bomb_area(b.pos) {
+                    b.cancel_after_spawn = true;
+                }
+                let e = b.effect;
+                if b.vms[e].run(anm, sys.rng) {
+                    // Quirk kept: the drop's state 5 is overwritten by state 1, the bullet survives
+                    // and its same-frame state-1 update can hit the bomb area again (a second drop).
+                    if b.cancel_after_spawn {
+                        let pos = b.pos;
+                        Self::bomb_drop(&mut self.items, anm, sys.rng, p, pos);
+                    }
+                    let b = &mut self.bullets[i];
+                    b.state = 1;
+                    b.state_timer = Timer::default();
+                    self.update_normal(anm, idx, p, sys);
+                } else {
+                    b.state_timer.tick(gs);
+                    b.age.tick(gs);
+                    self.push(idx);
+                }
+            }
+            // Cancel animation, no collision.
+            5 => {
+                let b = &mut self.bullets[i];
+                for a in 0..3 {
+                    b.pos[a] += b.vel[a] / 2.0;
+                }
+                if b.vms[4].run(anm, sys.rng) {
+                    b.state = 0;
+                } else {
+                    self.push(idx);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Laser spawn 0x430F20: first free of 256 slots; aimed unless op 114 (`fixed`).
+    pub fn spawn_laser(
+        &mut self,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        d: &LaserDesc,
+        ppos: [f32; 3],
+    ) -> Option<LaserIdx> {
+        // +0x594 holds the low 16 bits of the descriptor word (`mov word`).
+        let flags = LaserFlags::from_bits_retain(d.flags as u16);
+        if self.cancel_guard != 0 && !flags.contains(LaserFlags::NO_CANCEL) {
+            return None;
+        }
+        let slot = self.lasers.iter().position(|l| !l.alive)?;
+        let mut l = Laser {
+            origin: d.origin,
+            angle: if d.fixed {
+                d.angle
+            } else {
+                d.angle + angle_from(d.origin, ppos)
+            },
+            speed: d.speed,
+            tail: d.tail,
+            head: d.head,
+            max_len: d.max_len,
+            width: d.width,
+            startup: d.startup,
+            duration: d.duration,
+            fade: d.fade,
+            hit_start: d.hit_start,
+            fade_hit: d.fade_hit,
+            flags,
+            colour: d.colour,
+            state: u8::from(d.startup == 0),
+            alive: true,
+            ..Laser::default()
+        };
+        // Body script = type + 10, emitter 0x92 + 0x4C70F8[colour] with blend bits 4–5 := 1.
+        anm.set_script(
+            rng,
+            &mut l.body,
+            ANM_SLOT,
+            uidx((i32::from(d.kind) + 10).max(0)),
+        );
+        let sp = i32::from(l.body.sprite_index) + i32::from(d.colour);
+        l.body.set_sprite(anm, sp);
+        // Emitter: AnmVm_InitWithSprite 0x4068A0 = AnmVm_Init + sprite 0x92 + n, no script.
+        l.emitter = AnmVm::default();
+        l.emitter.init();
+        // vm+0x204 is an i16 (05 §2); slot 6.
+        l.emitter.anm_slot = (ANM_SLOT as u16).cast_signed();
+        l.emitter.set_sprite(
+            anm,
+            0x92 + at(&COLOR_SMALL, i32::from(d.colour)).unwrap_or(0),
+        );
+        l.emitter.flags =
+            (l.emitter.flags & !(3 << anmvm::F_BLEND_SHIFT)) | (1 << anmvm::F_BLEND_SHIFT);
+        if l.state == 1 {
+            l.cur_width = l.width;
+        }
+        self.lasers[slot] = l;
+        // Slot < 256.
+        Some(LaserIdx(slot as u16))
+    }
+
+    pub fn laser_mut(&mut self, id: LaserIdx) -> Option<&mut Laser> {
+        self.lasers.get_mut(id.idx()).filter(|l| l.alive)
+    }
+
+    // Per-frame laser update.
+    fn update_laser(&mut self, anm: &mut AnmManager, k: LaserIdx, p: &mut Player, sys: &mut Sys) {
+        let gs = anm.speed;
+        let env = self.env;
+        let mut orbs = 0;
+        let l = &mut self.lasers[k.idx()];
+        l.head += gs * l.speed;
+        if l.head - l.tail > l.max_len {
+            l.tail = l.head - l.max_len;
+        }
+        if l.tail < 0.0 {
+            l.tail = 0.0;
+        }
+        let len = l.head - l.tail;
+        let mut size = [if l.tail > 0.0 { len * 0.7 } else { len }, l.width / 2.0];
+        if l.body.sprite_w != 0.0 && l.body.sprite_h != 0.0 {
+            l.body.scale = [l.width / l.body.sprite_w, len / l.body.sprite_h];
+        }
+        l.body.rotation[2] = anmvm::wrap_add(l.angle, PI / 2.0);
+        l.body.flags |= anmvm::F_ROT_DIRTY | anmvm::F_SCALE_DIRTY;
+        if l.state == 0 {
+            // Step 4: formulas from Timer_GetF in f32 per operation (05 §10), tests on the integer cur.
+            let t = l.timer.cur;
+            let tf = l.timer.getf();
+            if l.flags.contains(LaserFlags::ALPHA_FADE) {
+                l.body.color[anmvm::A] = if l.startup > 0 {
+                    laser_alpha(tf, l.startup)
+                } else {
+                    255
+                };
+            } else {
+                l.cur_width = if t > l.startup - l.startup.min(30) {
+                    tf * l.width / l.startup as f32
+                } else {
+                    1.2
+                };
+                l.body.scale[0] = l.cur_width / 16.0;
+                // Quirk kept (step 4): the along-axis extent is replaced, not the width.
+                size[0] = l.cur_width / 2.0;
+            }
+            if t >= l.hit_start {
+                orbs += l.test(p, size, false, &env, anm, sys);
+            }
+            // State 1 runs in the same frame.
+            if t >= l.startup {
+                l.timer = Timer::default();
+                l.state = 1;
+                l.cur_width = l.width;
+            }
+        }
+        if l.state == 1 {
+            let t = l.timer.cur;
+            // Graze only every 20th frame (step 5).
+            orbs += l.test(p, size, t % 20 == 0, &env, anm, sys);
+            if t >= l.duration {
+                l.timer = Timer::default();
+                l.state = 2;
+                if l.fade == 0 {
+                    l.alive = false;
+                }
+            }
+        }
+        if l.alive && l.state == 2 {
+            let t = l.timer.cur;
+            let tf = l.timer.getf();
+            // Quirk kept (step 6): the fade-out alpha divides by `startup`, not `fade`.
+            if l.flags.contains(LaserFlags::ALPHA_FADE) {
+                l.body.color[anmvm::A] = if l.startup > 0 {
+                    laser_alpha(tf, l.startup)
+                } else {
+                    255
+                };
+            } else if l.fade > 0 {
+                l.cur_width = l.width - tf * l.width / l.fade as f32;
+                l.body.scale[0] = l.cur_width / 16.0;
+                size[0] = l.cur_width / 2.0;
+            }
+            if t < l.fade_hit {
+                orbs += l.test(p, size, false, &env, anm, sys);
+            }
+            if t >= l.fade {
+                l.alive = false;
+            }
+        }
+        if l.alive {
+            if l.tail >= 640.0 {
+                l.alive = false;
+            } else {
+                l.timer.tick(gs);
+                l.body.run(anm, sys.rng);
+            }
+        }
+        // A hit's Player_Die ends with DropAttracted; nothing touches the items between it and here.
+        if std::mem::take(&mut p.drop_attracted) {
+            self.items.drop_attracted();
+        }
+        for _ in 0..orbs {
+            self.items.spawn(anm, sys.rng, p, p.pos, 10, 0);
+        }
+    }
+
+    // Laser part of the cancels: fade from state 2, one item per 32 px tail → head; `items` false
+    // skips them. `bonus` (CancelBonus) drops the flag-bit-2 test and adds an item at the origin.
+    fn cancel_lasers(
+        &mut self,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        p: &Player,
+        mode: i32,
+        items: bool,
+        bonus: bool,
+    ) {
+        for k in 0..MAX_LASERS {
+            let l = &mut self.lasers[k];
+            if !l.alive || (!bonus && l.flags.contains(LaserFlags::NO_CANCEL) && mode != 4) {
+                continue;
+            }
+            if l.state < 2 {
+                l.state = 2;
+                l.timer = Timer::default();
+                // Width := current width, so the fade (state 2) shrinks from the current size.
+                l.width = l.cur_width;
+                if items {
+                    let (o, a, tail, head) = (l.origin, l.angle, l.tail, l.head);
+                    let (s, c) = sin_cos_f(a);
+                    if bonus {
+                        self.items.spawn(anm, rng, p, o, CANCEL_ITEM, 1);
+                    }
+                    let mut d = tail;
+                    while d < head {
+                        self.items.spawn(
+                            anm,
+                            rng,
+                            p,
+                            [o[0] + c * d, o[1] + s * d, 0.0],
+                            CANCEL_ITEM,
+                            1,
+                        );
+                        d += 32.0;
+                    }
+                }
+            }
+            self.lasers[k].fade_hit = 0;
+        }
+    }
+
+    // BulletMgr_CancelAll 0x430830: mode 4 → state 5 without items; else item type 6 with item mode
+    // `mode`; bomb-area bullets drop the raw bomb item. Sets the 10-frame cancel guard.
+    pub fn cancel_all(
+        &mut self,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        p: &mut Player,
+        mode: i32,
+    ) {
+        for i in 0..MAX_BULLETS {
+            let b = &self.bullets[i];
+            if b.free() || b.state == 5 {
+                continue;
+            }
+            let pos = b.pos;
+            // The original calls Player_InBombArea twice and drops the first result (hit counter +2).
+            p.in_bomb_area(pos);
+            if p.in_bomb_area(pos) {
+                Self::cancel_drop(&mut self.items, anm, rng, p, pos);
+                self.zero_slot(i);
+            } else if mode == 4 {
+                self.bullets[i].state = 5;
+            } else {
+                // Item mode is the low byte of the cancel mode (1 or 2 here).
+                self.items
+                    .spawn(anm, rng, p, pos, CANCEL_ITEM, crate::types::lo8(mode));
+                self.zero_slot(i);
+            }
+        }
+        self.cancel_lasers(anm, rng, p, mode, mode != 4, false);
+        self.cancel_guard = 10;
+    }
+
+    // Bomb-area item of the cancels: the raw player+0xE2A90 with mode 1, without the bomb drop's 9/−1 mapping.
+    fn cancel_drop(
+        items: &mut ItemManager,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        p: &Player,
+        pos: [f32; 3],
+    ) {
+        // A raw −1 (area item "none") is spawned as type 0xFF (08 §8.3).
+        items.spawn(anm, rng, p, pos, p.cancel_item, 1);
+    }
+
+    // "Slot zeroed": CancelAll / CancelRadius memset the whole 0x10B8-byte bullet, off-screen counter
+    // +0xDBA included; a normal Bullet_Free 0x432170 resets only state and two timers.
+    fn zero_slot(&mut self, i: usize) {
+        self.bullets[i] = Bullet::default();
+    }
+
+    // BulletMgr_CancelBonus 0x430AA0: popups from 2000, +20 per bullet, capped at `max_value`;
+    // returns their sum. Every alive laser is cancelled (no flag-bit-2 test); sets the cancel guard.
+    pub fn cancel_bonus(
+        &mut self,
+        anm: &mut AnmManager,
+        p: &mut Player,
+        max_value: i32,
+        lasers_too: bool,
+        sys: &mut Sys,
+    ) -> i32 {
+        let (mut v, mut sum) = (2000, 0);
+        for i in 0..MAX_BULLETS {
+            let b = &mut self.bullets[i];
+            if b.free() {
+                continue;
+            }
+            b.state = 5;
+            let pos = b.pos;
+            if p.in_bomb_area(pos) {
+                Self::cancel_drop(&mut self.items, anm, sys.rng, p, pos);
+            } else {
+                self.items.spawn(anm, sys.rng, p, pos, CANCEL_ITEM, 1);
+            }
+            sys.ov.popup(
+                pos,
+                v,
+                if v >= max_value {
+                    crate::item::POPUP_MAX
+                } else {
+                    crate::item::POPUP_NORMAL
+                },
+            );
+            sum += v;
+            v = (v + 20).min(max_value);
+        }
+        self.cancel_lasers(anm, sys.rng, p, 1, lasers_too, true);
+        self.cancel_guard = 10;
+        sum
+    }
+
+    // BulletMgr_CancelRadius 0x430D30: |pos − c|² ≤ r².
+    pub fn cancel_radius(
+        &mut self,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        p: &Player,
+        c: [f32; 3],
+        r: f32,
+    ) {
+        for i in 0..MAX_BULLETS {
+            let b = &mut self.bullets[i];
+            if b.free() || b.state == 5 {
+                continue;
+            }
+            let (dx, dy) = (b.pos[0] - c[0], b.pos[1] - c[1]);
+            if dx * dx + dy * dy <= r * r {
+                let pos = b.pos;
+                self.items.spawn(anm, rng, p, pos, CANCEL_ITEM, 1);
+                self.zero_slot(i);
+            }
+        }
+    }
+
+    // EclNative_4 / _7 / _21 (07 §12): a bullet whose pos and previous pos (pos − vel) lie in different zones is
+    // reversed and scaled about the centre across the ring between the inner and outer rectangles.
+    pub fn warp(&mut self, w: &Warp) {
+        for b in self.bullets[..MAX_BULLETS].iter_mut().filter(|b| !b.free()) {
+            if b.warp_cooldown != 0 {
+                b.warp_cooldown -= 1;
+                continue;
+            }
+            let p = b.pos;
+            let q = [p[0] - b.vel[0], p[1] - b.vel[1]];
+            let (zp, zq) = (
+                w.zone(p[0], p[1], w.outer),
+                w.zone(q[0], q[1], w.outer_prev),
+            );
+            if zp == zq {
+                continue;
+            }
+            b.warp_cooldown = 2;
+            #[expect(clippy::neg_multiply, reason = "07 §12 fmul by −1.0, kept as written")]
+            let vel = b.vel.map(|v| v * -1.0);
+            b.vel = vel;
+            let (a, d) = if zp == 0 || zq == 0 {
+                (w.k_outer, w.k_inner)
+            } else {
+                (w.k_inner, w.k_outer)
+            };
+            b.pos[0] = (p[0] - w.c[0]) * a / d + w.c[0];
+            b.pos[1] = (p[1] - w.c[1]) * a / d + w.c[1];
+            b.angle = anmvm::wrap_add(b.angle, PI);
+        }
+    }
+
+    // ECL native 28 (07 §12): every live bullet's velocity × `k` (the new game speed 1/arg) and VM0 +0x218 :=
+    // its sprite; only sprites 0x60–0x6F become 0x6F.
+    pub fn slow_down(&mut self, anm: &mut AnmManager, k: f32) {
+        for b in self.bullets[..MAX_BULLETS].iter_mut().filter(|b| !b.free()) {
+            for v in &mut b.vel {
+                *v *= k;
+            }
+            let sp = b.vms[0].sprite_index;
+            b.saved_sprite = sp;
+            if (0x60..=0x6F).contains(&sp) {
+                b.vms[0].set_sprite(anm, 0x6F);
+            }
+        }
+    }
+
+    // ECL native 29 (07 §12): every live bullet's velocity × `f` (1 / the slowed game speed); only sprites
+    // 0x60–0x6F are set back to +0x218, so a bullet spawned while slowed gets its template's base sprite.
+    pub fn slow_down_restore(&mut self, anm: &mut AnmManager, f: f32) {
+        for b in self.bullets[..MAX_BULLETS].iter_mut().filter(|b| !b.free()) {
+            for v in &mut b.vel {
+                *v *= f;
+            }
+            if (0x60..=0x6F).contains(&b.vms[0].sprite_index) {
+                b.vms[0].set_sprite(anm, i32::from(b.saved_sprite));
+            }
+        }
+    }
+
+    // ECL natives 12 / 14 0x424A20 / 0x424C40: ghost toggle by VM0 tag for bullets whose flags match
+    // `mask` (var 10000); native 14 cycles 1 → 0 → 2 (fade-in) → 1. `angle`/`speed` = vars 10016/10017.
+    pub fn toggle_ghost(
+        &mut self,
+        anm: &mut AnmManager,
+        mask: u32,
+        angle: f32,
+        speed: f32,
+        native14: bool,
+    ) {
+        let gs = anm.speed;
+        let set_blend = |vm: &mut AnmVm, b: u32| {
+            vm.flags = (vm.flags & !(3 << anmvm::F_BLEND_SHIFT)) | (b << anmvm::F_BLEND_SHIFT);
+        };
+        for b in &mut self.bullets[..MAX_BULLETS] {
+            if b.free() || b.flags & mask == 0 {
+                continue;
+            }
+            let vm = &mut b.vms[0];
+            match vm.tag {
+                1 => {
+                    let sp = i32::from(vm.sprite_index) + 16;
+                    vm.set_sprite(anm, sp);
+                    vm.tag = 0;
+                    set_blend(vm, 1);
+                    b.intangible = true;
+                    if native14 {
+                        vm.color[anmvm::A] = 0;
+                        b.vel = polar(b.angle, speed * gs);
+                    } else {
+                        b.vel = polar(angle, speed * gs);
+                    }
+                }
+                0 if native14 => {
+                    vm.tag = 2;
+                    vm.color[anmvm::A] = 0;
+                    vm.interp_alpha(15, 0, 255);
+                }
+                _ => {
+                    let sp = i32::from(vm.sprite_index) - 16;
+                    vm.set_sprite(anm, sp);
+                    vm.tag = 1;
+                    set_blend(vm, 0);
+                    b.intangible = false;
+                    b.vel = polar(b.angle, b.speed * gs);
+                }
+            }
+        }
+    }
+
+    // BulletMgr_Calc 0x431240.
+    pub fn step(&mut self, anm: &mut AnmManager, sys: &mut Sys) {
+        // Port plumbing: bomb areas registered by other tasks this frame become visible here.
+        crate::pl!(sys).take_queued_areas(sys.areas);
+        if self.frozen || crate::pl!(sys).freeze_bullets(*sys.flags) {
+            return;
+        }
+        // The player is held for the whole update, as the original's player pointer (lent out of `sys`).
+        let p = sys.player.take().expect("player");
+        let mut items = std::mem::take(&mut self.items);
+        let spell = self.env.spell;
+        items.calc(
+            anm,
+            p,
+            spell,
+            |it, anm, rng, p| {
+                std::mem::swap(&mut self.items, it);
+                self.cancel_all(anm, rng, p, 1);
+                std::mem::swap(&mut self.items, it);
+            },
+            sys,
+        );
+        self.items = items;
+        self.live = 0;
+        self.lists.iter_mut().for_each(Vec::clear);
+        // Step 3: visit order 0, 1535, 1534, …, 1; counted before the update.
+        for idx in std::iter::once(0).chain((1..MAX_BULLETS).rev()) {
+            if self.bullets[idx].free() {
+                continue;
+            }
+            self.live += 1;
+            self.update_bullet(anm, bidx(idx), p, sys);
+        }
+        for k in 0..MAX_LASERS {
+            if self.lasers[k].alive {
+                self.update_laser(anm, LaserIdx(k as u16), p, sys);
+            }
+        }
+        sys.player = Some(p);
+        if self.cancel_guard > 0 {
+            self.cancel_guard -= 1;
+        }
+        self.timer.tick(anm.speed);
+        self.frame += 1;
+    }
+
+    // Laser draw step: body pos at the middle; emitter scale / colour / pos at the tail; +(32, 16) origin.
+    fn lasers_draw_step(&mut self, anm: &AnmManager) {
+        for l in self.lasers.iter_mut().filter(|l| l.alive) {
+            // Math_SinCosF32 (05 §10).
+            let (s, c) = sin_cos_f(l.angle);
+            let len = l.head - l.tail;
+            let mid = l.tail + len / 2.0;
+            l.body.pos = [
+                l.origin[0] + c * mid + 32.0,
+                l.origin[1] + s * mid + 16.0,
+                0.0,
+            ];
+            anm.prepare(&mut l.body, 2);
+            if l.emitter_drawn() {
+                let mut sc = (16.0 - l.tail) / 16.0 * l.width / 10.0;
+                if sc <= 0.0 {
+                    sc = l.width / 10.0;
+                }
+                l.emitter.scale = [sc, sc];
+                l.emitter.color = l.body.color;
+                l.emitter.color[anmvm::A] = 255;
+                l.emitter.pos = [
+                    l.origin[0] + c * l.tail + 32.0,
+                    l.origin[1] + s * l.tail + 16.0,
+                    0.0,
+                ];
+                anm.prepare(&mut l.emitter, 2);
+            }
+        }
+    }
+
+    // Laser draw emit: body z 0.06, emitter z 0.05.
+    fn lasers_emit(&self, anm: &AnmManager, rec: &mut Recorder, tint: Option<Tint>) {
+        for l in self.lasers.iter().filter(|l| l.alive) {
+            anm.emit_tinted(rec, &l.body, 2, 0.06, tint);
+            if l.emitter_drawn() {
+                anm.emit_tinted(rec, &l.emitter, 2, 0.05, tint);
+            }
+        }
+    }
+
+    // Bullet_Draw: the VM drawn for each state, None = not drawn.
+    fn draw_vm(b: &Bullet) -> Option<usize> {
+        match b.state {
+            1 => Some(0),
+            2..=4 => Some(b.effect),
+            5 => Some(4),
+            _ => None,
+        }
+    }
+
+    // BulletMgr_Draw 0x432B50, draw-phase step: tint, then items, lasers and bullets by size class (each
+    // list in reverse visiting order), then tint off; the emit draws the same order plus effect list D.
+    pub fn draw_step(&mut self, anm: &mut AnmManager, p: &Player, flags: u32) {
+        // Tint 0xFFF01010 only while bullets are frozen (06 §10.2).
+        let frozen = p.freeze_bullets(flags);
+        if frozen {
+            (anm.tint, anm.tint_on) = (FROZEN_TINT, true);
+        }
+        self.items.draw_step(anm);
+        self.lasers_draw_step(anm);
+        for c in 0..6 {
+            for k in (0..self.lists[c].len()).rev() {
+                let b = &mut self.bullets[self.lists[c][k].idx()];
+                let Some(v) = Self::draw_vm(b) else {
+                    continue;
+                };
+                let vm = &mut b.vms[v];
+                // Bullet_Draw: z 0.05, RGB white keeping alpha, rotation only for tagged VMs.
+                vm.pos = [b.pos[0] + 32.0, b.pos[1] + 16.0, 0.05];
+                if vm.tag != 0 {
+                    let r = anmvm::wrap_add(b.angle, PI / 2.0);
+                    if vm.rotation[2] != r {
+                        vm.rotation[2] = r;
+                        vm.flags |= anmvm::F_ROT_DIRTY;
+                    }
+                }
+                vm.color[..3].fill(255);
+                anm.prepare(vm, 2);
+            }
+        }
+        // Off only while bit 10, after the over-bullet effects; otherwise the tint state is left alone (06 §10.2).
+        if frozen {
+            anm.tint_off();
+        }
+    }
+
+    pub fn emit(
+        &self,
+        anm: &AnmManager,
+        rec: &mut Recorder,
+        fx: &crate::effect::Effects,
+        p: &Player,
+        flags: u32,
+    ) {
+        rec.set_viewport(PLAYFIELD);
+        // The frozen tint is off again when the emit runs: the emit applies it to VM copies.
+        let tint = p.freeze_bullets(flags).then_some(Tint(FROZEN_TINT));
+        self.items.emit(anm, rec, tint);
+        self.lasers_emit(anm, rec, tint);
+        for c in 0..6 {
+            for &i in self.lists[c].iter().rev() {
+                let b = &self.bullets[i.idx()];
+                if let Some(v) = Self::draw_vm(b) {
+                    anm.emit_tinted(rec, &b.vms[v], 2, 0.05, tint);
+                }
+            }
+        }
+        match tint {
+            Some(t) => fx.emit_over_bullets_with(|vm| t.vm(vm), anm, rec),
+            None => fx.draw_over_bullets(anm, rec),
+        }
+    }
+}
+
+// BulletMgr_Draw / enemy draw prio 11 global tint while bullets are frozen (06 §10.2, 07 §10.6).
+pub const FROZEN_TINT: u32 = 0xFFF0_1010;
+
+// The bullet manager's chain nodes; they reach the manager through its owner (`ctx.w.bullets`).
+pub struct BulletTask;
+
+impl Task<Ctx> for BulletTask {
+    fn on_remove(&mut self, ctx: &mut Ctx, chain: Chain, _: u8) {
+        if chain == Chain::Calc {
+            ctx.w.anm.unload(&mut ctx.rec, ANM_SLOT);
+        }
+    }
+
+    fn calc(&mut self, ctx: &mut Ctx, _: u8) -> Ret {
+        let b = ctx.w.bullets.as_deref_mut().expect("bullet manager");
+        b.step(
+            &mut ctx.w.anm,
+            &mut crate::sys!(ctx.w; ctx.w.player.as_deref_mut(); None),
+        );
+        // Item_CollectTimeOrb: Spell_AddBonus(8000) per orb inside this calc, so this frame's Spell_Draw shows it (08 §8.5).
+        let orbs = std::mem::take(&mut crate::pl!(ctx.w).stats.spell_bonus_orbs);
+        // The spell state g_Gui is held by the enemy manager (`ctx.w.enemies`).
+        if let Some(e) = ctx.w.enemies.as_deref_mut() {
+            for _ in 0..orbs {
+                e.spell_add_bonus(8000);
+            }
+        }
+        Ret::Next
+    }
+
+    // BulletMgr_Draw prio 13: VM writes and the frozen tint in the step, the draws in the emit.
+    fn draw_step(&mut self, ctx: &mut Ctx, _: u8) -> Ret {
+        let p = ctx.w.player.as_deref().expect("player");
+        let b = ctx.w.bullets.as_deref_mut().expect("bullet manager");
+        b.draw_step(&mut ctx.w.anm, p, ctx.w.game.flags);
+        Ret::Next
+    }
+}
+
+impl BulletTask {
+    pub(crate) fn emit(&self, ctx: &View, rec: &mut Recorder, _: u8) {
+        let p = ctx.w.player.as_deref().expect("player");
+        let b = ctx.w.bullets.as_deref().expect("bullet manager");
+        b.emit(&ctx.w.anm, rec, &ctx.w.effects, p, ctx.w.game.flags);
+    }
+}
+
+// Laser alpha min(255, ftol(t·255/startup)) from Timer_GetF, f32 per operation (08 §6.3 steps 4 / 6).
+fn laser_alpha(tf: f32, startup: i32) -> u8 {
+    // Byte store of the int (`mov byte`), so a negative t wraps as in the original.
+    crate::types::lo8(((tf * 255.0 / startup as f32) as i32).min(255))
+}
+
+// Ex-command "sfx": Sound_Play(ex sfx) when ≥ 0.
+fn ex_sound(id: i32, sound: &mut crate::sound::Queue) {
+    if id >= 0 {
+        sound.play(id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::item;
+    use crate::player::Player;
+
+    // A manager and a player far off the playfield (no graze / hit); tests lend the player to their `Sys`.
+    fn mgr() -> (AnmManager, BulletManager, Player) {
+        let mut rng = crate::rng::Rng::default();
+        let mut anm = AnmManager::default();
+        let mut p = Player {
+            pos: [-1000.0, -1000.0, 0.0],
+            ..Player::default()
+        };
+        p.update_boxes();
+        let b = BulletManager::new(&mut anm, &mut rng);
+        (anm, b, p)
+    }
+
+    fn desc(angle: f32, speed: f32, flags: u32, ex: &[ExCmd]) -> BulletDesc {
+        let mut d = BulletDesc {
+            aim_mode: 3,
+            count1: 1,
+            count2: 1,
+            angle1: angle,
+            speed1: speed,
+            flags,
+            origin: [192.0, 224.0, 0.0],
+            ..BulletDesc::default()
+        };
+        d.ex[..ex.len()].copy_from_slice(ex);
+        d
+    }
+
+    fn cmd(cmd: u32, e: f32, f: f32, c: i32, d: i32) -> ExCmd {
+        ExCmd {
+            e,
+            f,
+            c,
+            d,
+            cmd,
+            chain: 0,
+        }
+    }
+
+    fn spawn(anm: &mut AnmManager, b: &mut BulletManager, d: &BulletDesc, sys: &mut Sys) -> usize {
+        let before: Vec<bool> = b.bullets.iter().map(Bullet::free).collect();
+        b.spawn_pattern(anm, d, [-1000.0, -1000.0, 0.0], sys);
+        (0..MAX_BULLETS)
+            .find(|&i| before[i] && !b.bullets[i].free())
+            .expect("bullet placed")
+    }
+
+    fn speed(b: &Bullet) -> f32 {
+        (b.vel[0] * b.vel[0] + b.vel[1] * b.vel[1]).sqrt()
+    }
+
+    // 07 §9.3 ops 96/100: aim is added before a1, left to right.
+    #[test]
+    fn pattern_angle_add_order() {
+        let mut rng = crate::rng::Rng::default();
+        let (aim, a1, a2) = (2.345_678_9_f32, 0.123_456_f32, 0.0711f32);
+        let mut d = BulletDesc {
+            aim_mode: 0,
+            count1: 4,
+            count2: 1,
+            angle1: a1,
+            angle2: a2,
+            ..BulletDesc::default()
+        };
+        for i in 0..4 {
+            let mut k = a2 / 2.0 + (i / 2) as f32 * a2;
+            if i % 2 == 1 {
+                k = -k;
+            }
+            let (_, a) = BulletManager::pattern_angle(&mut rng, &d, i, 0, aim);
+            assert_eq!(a.to_bits(), ((k + aim) + a1).to_bits());
+        }
+        d.aim_mode = 4;
+        for i in 0..4 {
+            let x = i as f32 * (2.0 * PI) / 4.0;
+            let (_, a) = BulletManager::pattern_angle(&mut rng, &d, i, 0, aim);
+            assert_eq!(a.to_bits(), ((x + (PI / 4.0 + (0.0 + aim))) + a1).to_bits());
+        }
+        d.aim_mode = 2;
+        d.count2 = 3;
+        for i in 0..4 {
+            for j in 0..3 {
+                let x = i as f32 * (2.0 * PI) / 4.0;
+                let (_, a) = BulletManager::pattern_angle(&mut rng, &d, i, j, aim);
+                assert_eq!(
+                    a.to_bits(),
+                    ((j as f32 * a2 + a1) + (x + (0.0 + aim))).to_bits()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn ring_pattern_and_visit_order() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let d = BulletDesc {
+            aim_mode: 3,
+            count1: 4,
+            count2: 1,
+            speed1: 2.0,
+            origin: [100.0, 100.0, 0.0],
+            ..BulletDesc::default()
+        };
+        b.spawn_pattern(&mut anm, &d, [0.0; 3], sys);
+        let a: Vec<f32> = b.live_bullets().map(|x| x.angle).collect();
+        assert_eq!(a.len(), 4);
+        for (got, want) in a.iter().zip([0.0, PI / 2.0, PI, -PI / 2.0]) {
+            assert!(
+                (anmvm::wrap_add(got - want, 0.0)).abs() < 1e-5,
+                "{got} vs {want}"
+            );
+        }
+        assert!(
+            b.live_bullets()
+                .all(|x| (speed(x) - 2.0).abs() < 1e-5 && x.pos[2] == 0.1)
+        );
+        b.step(&mut anm, sys);
+        assert_eq!(b.live, 4);
+        assert_eq!(b.lists[5].len(), 4);
+    }
+
+    // Natives 28 / 29 (07 §12): velocities × 1/arg, the sprite saved in +0x218, then both restored.
+    #[test]
+    fn slow_down_and_restore() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let i = spawn(&mut anm, &mut b, &desc(0.0, 4.0, 0, &[]), sys);
+        b.bullets[i].vms[0].sprite_index = 0x64;
+        b.slow_down(&mut anm, 0.5);
+        assert!((speed(&b.bullets[i]) - 2.0).abs() < 1e-5);
+        assert_eq!(b.bullets[i].saved_sprite, 0x64);
+        b.slow_down_restore(&mut anm, 2.0);
+        assert!((speed(&b.bullets[i]) - 4.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn speed_up_command() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let i = spawn(
+            &mut anm,
+            &mut b,
+            &desc(0.0, 1.0, 1, &[cmd(1, 0.0, 0.0, 0, 0)]),
+            sys,
+        );
+        assert_eq!(b.bullets[i].active.bits(), 1);
+        b.step(&mut anm, sys);
+        assert!((speed(&b.bullets[i]) - 6.0).abs() < 1e-5);
+        for _ in 0..8 {
+            b.step(&mut anm, sys);
+        }
+        assert!((speed(&b.bullets[i]) - (5.0 - 5.0 * 8.0 / 16.0 + 1.0)).abs() < 1e-5);
+        for _ in 0..9 {
+            b.step(&mut anm, sys);
+        }
+        assert_eq!(b.bullets[i].active.bits(), 0);
+        assert!((speed(&b.bullets[i]) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn accel_command() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let i = spawn(
+            &mut anm,
+            &mut b,
+            &desc(0.0, 1.0, 0x10, &[cmd(0x10, 0.1, PI / 2.0, 10, 0)]),
+            sys,
+        );
+        for _ in 0..12 {
+            b.step(&mut anm, sys);
+        }
+        let x = &b.bullets[i];
+        assert_eq!(x.active.bits(), 0);
+        assert!(
+            (x.vel[0] - 1.0).abs() < 1e-4 && (x.vel[1] - 1.0).abs() < 1e-4,
+            "{:?}",
+            x.vel
+        );
+        assert!((x.angle - PI / 4.0).abs() < 1e-4);
+        assert_eq!(x.speed, 1.0);
+        let j = spawn(
+            &mut anm,
+            &mut b,
+            &desc(0.5, 1.0, 0x10, &[cmd(0x10, 0.1, -999.0, 1, 0)]),
+            sys,
+        );
+        assert!((b.bullets[j].st.accel_angle - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn angular_command() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let i = spawn(
+            &mut anm,
+            &mut b,
+            &desc(0.0, 1.0, 0x20, &[cmd(0x20, 0.5, 0.1, 4, 0)]),
+            sys,
+        );
+        for _ in 0..6 {
+            b.step(&mut anm, sys);
+        }
+        let x = &b.bullets[i];
+        assert!((x.angle - 0.4).abs() < 1e-5 && (x.speed - 3.0).abs() < 1e-5);
+        assert!((speed(x) - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn redirect_commands() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let i = spawn(
+            &mut anm,
+            &mut b,
+            &desc(0.0, 2.0, 0x100, &[cmd(0x100, 1.0, 3.0, 4, 1)]),
+            sys,
+        );
+        b.step(&mut anm, sys);
+        assert!((speed(&b.bullets[i]) - 2.0).abs() < 1e-5);
+        b.step(&mut anm, sys);
+        assert!((speed(&b.bullets[i]) - 1.5).abs() < 1e-5);
+        for _ in 0..3 {
+            b.step(&mut anm, sys);
+        }
+        let x = &b.bullets[i];
+        assert_eq!(x.active.bits(), 0);
+        assert_eq!((x.angle, x.speed), (1.0, 3.0));
+        let j = spawn(
+            &mut anm,
+            &mut b,
+            &desc(0.5, 2.0, 0x40, &[cmd(0x40, 1.0, -1000.0, 0, 2)]),
+            sys,
+        );
+        b.step(&mut anm, sys);
+        b.step(&mut anm, sys);
+        assert!((b.bullets[j].angle - 2.5).abs() < 1e-5 && b.bullets[j].speed == 2.0);
+        assert_eq!(b.bullets[j].active.bits(), 0);
+    }
+
+    #[test]
+    fn bounce_and_wrap() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let mut d = desc(PI, 4.0, 0x400, &[cmd(0x400, 1.5, 0.0, 1, 0)]);
+        d.origin = [2.0, 200.0, 0.0];
+        let i = spawn(&mut anm, &mut b, &d, sys);
+        b.step(&mut anm, sys);
+        assert!(b.bullets[i].pos[0] < 0.0);
+        b.step(&mut anm, sys);
+        let x = &b.bullets[i];
+        assert!(
+            x.angle.abs() < 1e-5 && x.speed == 1.5 && x.active.is_empty(),
+            "{} {}",
+            x.angle,
+            x.speed
+        );
+        let mut d = desc(
+            PI,
+            4.0,
+            0x2000 | 0x40_0000,
+            &[cmd(0x2000, 0.0, 0.0, 5, 0), cmd(0x40_0000, 0.0, 0.0, 3, 0)],
+        );
+        d.origin = [2.0, 200.0, 0.0];
+        let j = spawn(&mut anm, &mut b, &d, sys);
+        b.step(&mut anm, sys);
+        b.step(&mut anm, sys);
+        assert!(
+            (b.bullets[j].pos[0] - (2.0 - 8.0 + 384.0)).abs() < 1e-4,
+            "{}",
+            b.bullets[j].pos[0]
+        );
+    }
+
+    #[test]
+    fn chaining_and_flag_gating() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let ex = [
+            cmd(0x10, 0.0, 0.0, 1, 0),
+            cmd(0x20000, 0.0, 0.0, 3, 0),
+            cmd(0x100, 2.0, 1.0, 0, 1),
+        ];
+        let i = spawn(&mut anm, &mut b, &desc(0.0, 1.0, 0x20000 | 0x100, &ex), sys);
+        assert_eq!(
+            (b.bullets[i].active.bits(), b.bullets[i].ex_index),
+            (0x20000, 2)
+        );
+        for _ in 0..4 {
+            b.step(&mut anm, sys);
+            assert_eq!(b.bullets[i].active.bits() & 0x100, 0);
+        }
+        b.step(&mut anm, sys);
+        assert_eq!(b.bullets[i].ex_index, 3);
+        b.step(&mut anm, sys);
+        assert_eq!(b.bullets[i].angle, 2.0);
+        let ex = [cmd(0x2000, 0.0, 0.0, 7, 0), cmd(0x40000, 0.0, 0.0, 0, 0)];
+        let j = spawn(
+            &mut anm,
+            &mut b,
+            &desc(0.0, 1.0, 0x2000 | 0x40000, &ex),
+            sys,
+        );
+        assert_eq!((b.bullets[j].grace, b.bullets[j].state), (7, 5));
+    }
+
+    #[test]
+    fn sub_pattern_command() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let a = (3 << 24) | (2 << 16) | (5 << 8);
+        let ex = [
+            cmd(0x100_0000, 3.0, 1.0, a | (1 << 31), 4),
+            ExCmd {
+                e: 0.25,
+                f: 0.0,
+                c: 1,
+                d: 0,
+                cmd: 0,
+                chain: 0,
+            },
+        ];
+        let i = spawn(&mut anm, &mut b, &desc(0.0, 1.0, 0x100_0000, &ex), sys);
+        assert_eq!(b.bullets[i].state, 5);
+        let subs: Vec<&Bullet> = b.live_bullets().filter(|x| x.state == 1).collect();
+        assert_eq!(subs.len(), 4);
+        assert!(
+            subs.iter()
+                .all(|x| x.colour == 5 && x.speed == 3.0 && x.pos[0] == 192.0)
+        );
+        assert!((subs[1].angle - (0.25 + PI / 2.0)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn offscreen_rules() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let mut d = desc(PI, 5.0, 0, &[]);
+        d.origin = [1.0, 200.0, 0.0];
+        let i = spawn(&mut anm, &mut b, &d, sys);
+        b.step(&mut anm, sys);
+        assert!(b.bullets[i].free());
+        let mut d = desc(PI, 5.0, 0x100, &[cmd(0x100, 0.0, 0.0, 1000, 1)]);
+        d.origin = [1.0, 200.0, 0.0];
+        let j = spawn(&mut anm, &mut b, &d, sys);
+        for _ in 0..127 {
+            b.step(&mut anm, sys);
+        }
+        assert!(!b.bullets[j].free());
+        assert_eq!(b.bullets[j].off_count, 127);
+        b.step(&mut anm, sys);
+        assert!(b.bullets[j].free());
+    }
+
+    #[test]
+    fn cancel_to_items() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let d = BulletDesc {
+            aim_mode: 3,
+            count1: 5,
+            count2: 1,
+            speed1: 1.0,
+            origin: [100.0, 100.0, 0.0],
+            ..BulletDesc::default()
+        };
+        b.spawn_pattern(&mut anm, &d, [0.0; 3], sys);
+        b.cancel_all(&mut anm, sys.rng, crate::pl!(sys), 1);
+        assert_eq!(b.live_bullets().count(), 0);
+        let items: Vec<_> = b.items.live().map(|i| (i.kind, i.state)).collect();
+        assert_eq!(items, vec![(6, 1); 5]);
+        assert_eq!(b.cancel_guard, 10);
+        let i = spawn(&mut anm, &mut b, &desc(0.0, 1.0, 0, &[]), sys);
+        assert_eq!(b.bullets[i].state, 5);
+        let j = spawn(&mut anm, &mut b, &desc(0.0, 1.0, F_NO_CANCEL, &[]), sys);
+        assert_eq!(b.bullets[j].state, 1);
+        b.cancel_all(&mut anm, sys.rng, crate::pl!(sys), 4);
+        assert_eq!(b.bullets[j].state, 5);
+        assert_eq!(b.items.live().count(), 5);
+
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        b.spawn_pattern(
+            &mut anm,
+            &BulletDesc {
+                count1: 3,
+                ..d.clone()
+            },
+            [0.0; 3],
+            sys,
+        );
+        let sum = sys.with_player(|p, sys| b.cancel_bonus(&mut anm, p, 2030, false, sys));
+        assert_eq!(sum, 2000 + 2020 + 2030);
+        assert!(b.live_bullets().all(|x| x.state == 5));
+
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let l = LaserDesc {
+            fixed: true,
+            head: 100.0,
+            max_len: 200.0,
+            width: 16.0,
+            startup: 0,
+            duration: 100,
+            fade: 10,
+            origin: [50.0, 50.0, 0.0],
+            ..LaserDesc::default()
+        };
+        let k = b
+            .spawn_laser(&mut anm, sys.rng, &l, [0.0; 3])
+            .unwrap()
+            .idx();
+        b.cancel_all(&mut anm, sys.rng, crate::pl!(sys), 1);
+        assert_eq!(b.lasers[k].state, 2);
+        let xs: Vec<f32> = b.items.live().map(|i| i.pos[0]).collect();
+        assert_eq!(xs, vec![50.0, 82.0, 114.0, 146.0]);
+        assert!(b.spawn_laser(&mut anm, sys.rng, &l, [0.0; 3]).is_none());
+    }
+
+    // 08 §7: CancelBonus cancels flag-4 lasers too (CancelAll skips them) and sets the cancel guard; the bomb-area
+    // item is the raw +0xE2A90 (type 9 stays one item), InBombArea runs twice per bullet, and the cancel zeroes the
+    // whole slot including the off-screen counter.
+    #[test]
+    fn cancel_all_raw_item_and_zeroed_slot() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let d = desc(PI, 0.0, 0, &[]);
+        let i = spawn(&mut anm, &mut b, &d, sys);
+        let j = spawn(&mut anm, &mut b, &d, sys);
+        b.bullets[j].pos = [50.0, 50.0, 0.1];
+        b.bullets[i].off_count = 5;
+        b.bullets[j].off_count = 7;
+        let a = crate::pl!(sys).cancel_rect([192.0, 224.0], [40.0, 40.0], 9, 10);
+        b.cancel_all(&mut anm, sys.rng, crate::pl!(sys), 1);
+        let kinds: Vec<u8> = b.items.live().map(|it| it.kind).collect();
+        assert_eq!(kinds, vec![9, CANCEL_ITEM as u8]);
+        assert_eq!(crate::pl!(sys).cancel_areas[a].total, 2);
+        assert!(b.bullets[i].free() && b.bullets[j].free());
+        assert_eq!((b.bullets[i].off_count, b.bullets[j].off_count), (0, 0));
+    }
+
+    // 08 §6.3 step 4: at speed 0.5 the startup width follows cur + frac every frame; the test is on cur.
+    #[test]
+    fn laser_startup_width_uses_timer_getf() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let l = LaserDesc {
+            fixed: true,
+            head: 40.0,
+            max_len: 200.0,
+            width: 16.0,
+            startup: 30,
+            hit_start: 1000,
+            duration: 100,
+            fade: 10,
+            origin: [-300.0, -300.0, 0.0],
+            ..LaserDesc::default()
+        };
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let k = b
+            .spawn_laser(&mut anm, sys.rng, &l, [0.0; 3])
+            .unwrap()
+            .idx();
+        anm.speed = 0.5;
+        let mut w = Vec::new();
+        for _ in 0..4 {
+            sys.with_player(|p, sys| b.update_laser(&mut anm, LaserIdx(k as u16), p, sys));
+            w.push(b.lasers[k].cur_width);
+        }
+        assert_eq!(w, [1.2, 1.2, 16.0 / 30.0, 1.5f32 * 16.0 / 30.0]);
+        assert_eq!(laser_alpha(1.5, 30), 12);
+    }
+
+    #[test]
+    fn cancel_bonus_flag4_laser() {
+        let mut rng = crate::rng::Rng::default();
+        let l = LaserDesc {
+            fixed: true,
+            head: 40.0,
+            max_len: 200.0,
+            width: 16.0,
+            duration: 100,
+            fade: 10,
+            flags: 4,
+            origin: [50.0, 50.0, 0.0],
+            ..LaserDesc::default()
+        };
+        let (mut anm, mut b, mut pl) = mgr();
+        let k = b
+            .spawn_laser(&mut anm, &mut rng, &l, [0.0; 3])
+            .unwrap()
+            .idx();
+        let st = b.lasers[k].state;
+        b.cancel_all(&mut anm, &mut rng, &mut pl, 1);
+        assert!(st < 2 && b.lasers[k].state == st);
+
+        let (mut anm, mut b, mut pl) = mgr();
+        let k = b
+            .spawn_laser(&mut anm, &mut rng, &l, [0.0; 3])
+            .unwrap()
+            .idx();
+        let mut ts = crate::game::TestSys::default();
+        b.cancel_bonus(&mut anm, &mut pl, 2030, true, &mut ts.sys());
+        assert_eq!(b.lasers[k].state, 2);
+        let xs: Vec<f32> = b.items.live().map(|i| i.pos[0]).collect();
+        assert_eq!(xs, vec![50.0, 50.0, 82.0]);
+        assert_eq!(b.cancel_guard, 10);
+    }
+
+    // 08 §3.2: vel = polar(unwrapped a); the stored angle is wrapped.
+    #[test]
+    fn place_velocity_unwrapped_angle() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let a = 4.0 * PI / 3.0;
+        let i = spawn(&mut anm, &mut b, &desc(a, 3.0, 0, &[]), sys);
+        let x = &b.bullets[i];
+        assert_eq!(x.vel, polar(a, 3.0 * anm.speed));
+        assert_eq!(x.angle, anmvm::wrap_add(a, 0.0));
+        assert!(x.angle < PI);
+    }
+
+    // 08 §2.1: scripts 111 / 112 (types 16 / 17, 16×16) → hitbox 4, class 4.
+    #[test]
+    fn types_16_17_hitbox() {
+        assert_eq!(hitbox_class(16.0, 111), (4.0, 4));
+        assert_eq!(hitbox_class(16.0, 112), (4.0, 4));
+        assert_eq!(hitbox_class(16.0, 1), (6.0, 3));
+    }
+
+    // 05 §2: +0x218 at spawn is the template's base sprite, not the coloured one.
+    #[test]
+    fn saved_sprite_is_base() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let mut d = desc(0.0, 1.0, 0, &[]);
+        d.colour = 3;
+        let i = spawn(&mut anm, &mut b, &d, sys);
+        assert_eq!(
+            b.bullets[i].saved_sprite,
+            b.templates[0].vms[0].sprite_index
+        );
+    }
+
+    #[test]
+    fn laser_lifecycle() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        let l = LaserDesc {
+            fixed: true,
+            speed: 4.0,
+            head: 0.0,
+            max_len: 64.0,
+            width: 16.0,
+            startup: 10,
+            duration: 20,
+            fade: 5,
+            origin: [50.0, 50.0, 0.0],
+            ..LaserDesc::default()
+        };
+        let k = b
+            .spawn_laser(&mut anm, sys.rng, &l, [0.0; 3])
+            .unwrap()
+            .idx();
+        assert_eq!(b.lasers[k].state, 0);
+        for _ in 0..10 {
+            b.step(&mut anm, sys);
+        }
+        assert_eq!(b.lasers[k].state, 0);
+        b.step(&mut anm, sys);
+        assert_eq!(b.lasers[k].state, 1);
+        assert_eq!((b.lasers[k].tail, b.lasers[k].head), (0.0, 44.0));
+        for _ in 0..20 {
+            b.step(&mut anm, sys);
+        }
+        assert_eq!(b.lasers[k].state, 2);
+        assert_eq!(b.lasers[k].tail, b.lasers[k].head - 64.0);
+        for _ in 0..5 {
+            b.step(&mut anm, sys);
+        }
+        assert!(!b.lasers[k].alive);
+    }
+
+    #[test]
+    fn items_spawn_and_collect() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        crate::pl!(sys).stats.power = 128.0;
+        let k = b
+            .items
+            .spawn(
+                &mut anm,
+                sys.rng,
+                crate::pl!(sys),
+                [100.0, 100.0, 0.0],
+                0,
+                0,
+            )
+            .unwrap()
+            .idx();
+        assert_eq!(b.items.items[k].kind, item::CONVERTED);
+        let k = b
+            .items
+            .spawn(
+                &mut anm,
+                sys.rng,
+                crate::pl!(sys),
+                [100.0, 100.0, 0.0],
+                10,
+                0,
+            )
+            .unwrap()
+            .idx();
+        assert_eq!(
+            (b.items.items[k].kind, b.items.items[k].state),
+            (item::TIME_ORB, 5)
+        );
+        assert!(
+            b.items
+                .spawn(
+                    &mut anm,
+                    sys.rng,
+                    crate::pl!(sys),
+                    [500.0, 100.0, 0.0],
+                    1,
+                    0
+                )
+                .is_none()
+        );
+
+        let (mut anm, mut b, mut pl) = mgr();
+        sys.player = Some(&mut pl);
+        crate::pl!(sys).pos = [100.0, 300.0, 0.0];
+        crate::pl!(sys).update_boxes();
+        b.items.spawn(
+            &mut anm,
+            sys.rng,
+            crate::pl!(sys),
+            [100.0, 100.0, 0.0],
+            i32::from(item::POINT),
+            1,
+        );
+        for _ in 0..40 {
+            b.step(&mut anm, sys);
+        }
+        let p = crate::pl!(sys);
+        assert_eq!(b.items.collected, 1);
+        let line = p.sht.poc_line;
+        assert!(
+            p.stats.score() > 0 && p.stats.point_items == 1,
+            "line {line} score {}",
+            p.stats.score()
+        );
+    }
+
+    // 08 §6.3 through Player_LaserTest (09 §6.1): laser box c ± s/2 with f32 edges; touching overlaps.
+    #[test]
+    fn laser_hits_through_player_laser_test() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let (mut anm, _, _) = mgr();
+        let mut p = Player {
+            state: 0,
+            debug_invuln: true,
+            ..Player::default()
+        };
+        p.sht.hitbox = 2.0;
+        let l = Laser {
+            origin: [100.0, 100.0, 0.0],
+            head: 100.0,
+            ..Laser::default()
+        };
+        let env = GrazeEnv::default();
+        p.pos = [150.0, 105.0, 0.0];
+        l.test(&mut p, [100.0, 8.0], false, &env, &mut anm, sys);
+        assert_eq!(p.hits, 1);
+        p.pos = [150.0, 105.001, 0.0];
+        l.test(&mut p, [100.0, 8.0], false, &env, &mut anm, sys);
+        assert_eq!(p.hits, 1);
+    }
+}

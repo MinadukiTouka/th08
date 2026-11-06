@@ -1,0 +1,2327 @@
+//! Draw log tools: log file opening, a reader and a per-frame diff against a reference log.
+#![allow(clippy::disallowed_methods)]
+
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::Write as _;
+use std::io::BufRead;
+use std::rc::Rc;
+use th08_core::drawfmt::{num, num_g};
+
+// `TH08_DRAWLOG=<path>[,from-to | ,dfrom-to]`: the draw log writer for `Io::drawlog`; a `.xz` path is
+// xz-compressed. An unopenable path logs the error and gives None (log off).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn open_spec(v: &str) -> Option<th08_core::drawfmt::Writer> {
+    let (path, range) = th08_core::drawfmt::parse_spec(v);
+    let w: std::io::Result<Box<dyn std::io::Write>> = if path.ends_with(".xz") {
+        crate::xz::create(path.as_ref()).map(|w| Box::new(w) as _)
+    } else {
+        std::fs::File::create(path).map(|f| Box::new(std::io::BufWriter::new(f)) as _)
+    };
+    match w {
+        Ok(w) => Some(th08_core::drawfmt::Writer::stream(w, range)),
+        Err(e) => {
+            log::error!("TH08_DRAWLOG={path}: {e}");
+            None
+        }
+    }
+}
+
+// Per-frame sha256 of the `format_frame` text, `<present> <first 32 hex>` per line, so a
+// hash match means the draw log would match byte for byte.
+#[cfg(not(target_arch = "wasm32"))]
+pub struct HashSink(std::io::BufWriter<std::fs::File>);
+
+#[cfg(not(target_arch = "wasm32"))]
+impl HashSink {
+    pub fn create(path: &std::path::Path) -> std::io::Result<Self> {
+        Ok(Self(std::io::BufWriter::new(std::fs::File::create(path)?)))
+    }
+
+    pub fn frame(&mut self, text: &str) {
+        use sha2::Digest;
+        use std::io::Write;
+        let present = text.split_ascii_whitespace().nth(1).unwrap_or("?");
+        let h = sha2::Sha256::digest(text.as_bytes());
+        let mut hex = String::with_capacity(32);
+        for b in &h[..16] {
+            let _ = write!(hex, "{b:02x}");
+        }
+        let _ = writeln!(self.0, "{present} {hex}");
+    }
+
+    pub fn finish(mut self) -> std::io::Result<()> {
+        std::io::Write::flush(&mut self.0)
+    }
+}
+
+// ---- reader ----
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Vtx {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub rhw: f32,
+    pub u: f32,
+    pub v: f32,
+    pub col: u32,
+}
+
+#[derive(Clone, Debug)]
+pub enum Kind {
+    Quad([Vtx; 4]),
+    Poly(Rc<str>, Vec<Vtx>),
+    Clear(Rc<str>, u32),
+    Copy(Rc<str>),
+}
+
+#[derive(Clone, Debug)]
+pub struct Prim {
+    pub tex: Rc<str>,
+    pub tw: u32,
+    pub th: u32,
+    pub state: Rc<str>,
+    pub vp: [f32; 4],
+    pub kind: Kind,
+}
+
+impl Prim {
+    pub fn textured(&self) -> bool {
+        &*self.tex != "-"
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Frame {
+    pub present: i64,
+    pub scene: i32,
+    pub scene_frame: i64,
+    pub game_frame: i64,
+    pub demo: i32,
+    pub demo_frame: i64,
+    pub input: u32,
+    pub prims: Vec<Prim>,
+}
+
+#[derive(Default)]
+struct Interner(HashMap<String, Rc<str>>);
+
+impl Interner {
+    fn get(&mut self, s: &str) -> Rc<str> {
+        if let Some(r) = self.0.get(s) {
+            return r.clone();
+        }
+        let r: Rc<str> = s.into();
+        self.0.insert(s.to_string(), r.clone());
+        r
+    }
+}
+
+pub struct Reader<R: BufRead> {
+    src: R,
+    line: String,
+    next: Option<Frame>,
+    intern: Interner,
+    tex: (Rc<str>, u32, u32),
+    state: Rc<str>,
+    vp: [f32; 4],
+    done: bool,
+    none: Rc<str>,
+}
+
+fn f(t: Option<&str>) -> f32 {
+    match t {
+        Some("-") | None => f32::NAN,
+        Some(s) => s.parse().unwrap_or(f32::NAN),
+    }
+}
+
+fn hex(t: Option<&str>) -> u32 {
+    t.and_then(|s| u32::from_str_radix(s, 16).ok()).unwrap_or(0)
+}
+
+impl<R: BufRead> Reader<R> {
+    pub fn new(src: R) -> Self {
+        let mut intern = Interner::default();
+        let none = intern.get("-");
+        Self {
+            src,
+            line: String::new(),
+            next: None,
+            intern,
+            tex: (none.clone(), 0, 0),
+            state: none.clone(),
+            none,
+            vp: [0.0, 0.0, 640.0, 480.0],
+            done: false,
+        }
+    }
+
+    fn vertex(t: &mut std::str::SplitAsciiWhitespace) -> Vtx {
+        Vtx {
+            x: f(t.next()),
+            y: f(t.next()),
+            z: f(t.next()),
+            rhw: f(t.next()),
+            u: f(t.next()),
+            v: f(t.next()),
+            col: hex(t.next()),
+        }
+    }
+
+    // Untextured primitives ("-" UVs) are grouped under "-" whatever texture is still set.
+    fn prim(&self, kind: Kind) -> Prim {
+        let untextured = match &kind {
+            Kind::Quad(q) => q[0].u.is_nan(),
+            Kind::Poly(_, v) => v.first().is_some_and(|x| x.u.is_nan()),
+            _ => false,
+        };
+        Prim {
+            tex: if untextured {
+                self.none.clone()
+            } else {
+                self.tex.0.clone()
+            },
+            tw: self.tex.1,
+            th: self.tex.2,
+            state: self.state.clone(),
+            vp: self.vp,
+            kind,
+        }
+    }
+}
+
+impl<R: BufRead> Iterator for Reader<R> {
+    type Item = Frame;
+
+    fn next(&mut self) -> Option<Frame> {
+        loop {
+            if self.done {
+                return self.next.take();
+            }
+            self.line.clear();
+            if self.src.read_line(&mut self.line).unwrap_or(0) == 0 {
+                self.done = true;
+                continue;
+            }
+            let line = std::mem::take(&mut self.line);
+            let mut t = line.split_ascii_whitespace();
+            let rec = t.next().unwrap_or("");
+            match rec {
+                "F" => {
+                    let n: Vec<i64> = (0..6)
+                        .map(|_| t.next().and_then(|s| s.parse().ok()).unwrap_or(0))
+                        .collect();
+                    let fr = Frame {
+                        present: n[0],
+                        scene: n[1] as i32,
+                        scene_frame: n[2],
+                        game_frame: n[3],
+                        demo: n[4] as i32,
+                        demo_frame: n[5],
+                        input: hex(t.next()),
+                        prims: Vec::new(),
+                    };
+                    self.tex = (self.intern.get("-"), 0, 0);
+                    self.state = self.intern.get("-");
+                    self.vp = [0.0, 0.0, 640.0, 480.0];
+                    if let Some(prev) = self.next.replace(fr) {
+                        self.line = line;
+                        return Some(prev);
+                    }
+                }
+                "T" => {
+                    let l = t.next().unwrap_or("-");
+                    let w = t.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                    let h = t.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                    self.tex = (self.intern.get(l), w, h);
+                }
+                "S" => self.state = self.intern.get(line[1..].trim()),
+                "V" => {
+                    let v: Vec<f32> = t.map(|s| s.parse().unwrap_or(0.0)).collect();
+                    if v.len() >= 4 {
+                        self.vp = [v[0], v[1], v[2], v[3]];
+                    }
+                }
+                "R" => {
+                    let n: Vec<&str> = t.collect();
+                    let g = |i: usize| f(n.get(i).copied());
+                    let col = hex(n.get(8).copied());
+                    let z = n.get(9).map_or(0.0, |s| s.parse().unwrap_or(0.0));
+                    let (x0, y0, x1, y1, u0, v0, u1, v1) =
+                        (g(0), g(1), g(2), g(3), g(4), g(5), g(6), g(7));
+                    let vt = |x, y, u, v| Vtx {
+                        x,
+                        y,
+                        z,
+                        rhw: 1.0,
+                        u,
+                        v,
+                        col,
+                    };
+                    let q = [
+                        vt(x0, y0, u0, v0),
+                        vt(x1, y0, u1, v0),
+                        vt(x0, y1, u0, v1),
+                        vt(x1, y1, u1, v1),
+                    ];
+                    let p = self.prim(Kind::Quad(q));
+                    if let Some(fr) = &mut self.next {
+                        fr.prims.push(p);
+                    }
+                }
+                "Q" => {
+                    let q = std::array::from_fn(|_| Self::vertex(&mut t));
+                    let p = self.prim(Kind::Quad(q));
+                    if let Some(fr) = &mut self.next {
+                        fr.prims.push(p);
+                    }
+                }
+                "P" => {
+                    let kind = self.intern.get(t.next().unwrap_or("?"));
+                    let n: usize = t.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                    let v = (0..n).map(|_| Self::vertex(&mut t)).collect();
+                    let p = self.prim(Kind::Poly(kind, v));
+                    if let Some(fr) = &mut self.next {
+                        fr.prims.push(p);
+                    }
+                }
+                "C" => {
+                    let what = self.intern.get(t.next().unwrap_or("?"));
+                    let col = hex(t.next());
+                    let p = self.prim(Kind::Clear(what, col));
+                    if let Some(fr) = &mut self.next {
+                        fr.prims.push(p);
+                    }
+                }
+                "K" => {
+                    let rest = self.intern.get(line[1..].trim());
+                    let p = self.prim(Kind::Copy(rest));
+                    if let Some(fr) = &mut self.next {
+                        fr.prims.push(p);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+pub fn parse_str(text: &str) -> Vec<Frame> {
+    Reader::new(std::io::Cursor::new(text.as_bytes())).collect()
+}
+
+// Opens one or more logs (plain or .xz, concatenated in order).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn open(paths: &[std::path::PathBuf]) -> anyhow::Result<Reader<Box<dyn BufRead>>> {
+    use std::io::Read;
+    anyhow::ensure!(!paths.is_empty(), "no draw log given");
+    let mut src: Box<dyn Read> = Box::new(std::io::empty());
+    for p in paths {
+        let r: Box<dyn Read> = if p.extension().is_some_and(|e| e == "xz") {
+            Box::new(crate::xz::open(p)?)
+        } else {
+            Box::new(std::fs::File::open(p)?)
+        };
+        src = Box::new(src.chain(r));
+    }
+    Ok(Reader::new(Box::new(std::io::BufReader::with_capacity(
+        1 << 20,
+        src,
+    ))))
+}
+
+// A reference given as `<dir>/demo0` expands to its chunks `<dir>/demo0_*.drawlog.xz`.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn expand(path: &str) -> Vec<std::path::PathBuf> {
+    let p = std::path::Path::new(path);
+    if p.is_file() {
+        return vec![p.to_path_buf()];
+    }
+    let (dir, stem) = (
+        p.parent().unwrap_or(std::path::Path::new(".")),
+        p.file_name().and_then(|s| s.to_str()).unwrap_or(""),
+    );
+    let mut v: Vec<_> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|q| {
+            q.file_name()
+                .and_then(|s| s.to_str())
+                .is_some_and(|n| n.starts_with(&format!("{stem}_")) && n.contains(".drawlog"))
+        })
+        .collect();
+    v.sort();
+    v
+}
+
+// ---- diff ----
+
+pub const PLAYFIELD: [f32; 4] = [32.0, 16.0, 416.0, 464.0];
+
+#[derive(Clone, Copy, Debug)]
+pub struct Opts {
+    pub playfield: bool,
+}
+
+pub const D_POS: u8 = 1;
+pub const D_UV: u8 = 2;
+pub const D_COL: u8 = 4;
+pub const D_Z: u8 = 8;
+pub const D_STATE: u8 = 16;
+// z / zwrite of quads drawn with ztest=always on both sides: not visible, reported but not scored.
+pub const D_HIDDEN: u8 = 32;
+pub const D_NAMES: [&str; 6] = ["pos", "uv", "colour", "z/rhw", "state", "2D z/zwrite"];
+
+#[derive(Clone, Debug, Default)]
+pub struct LabelDiff {
+    pub same: usize,
+    pub missing: usize,
+    pub extra: usize,
+    pub changed: usize,
+    pub why: [usize; 6],
+    // Port quads beyond a reference batch cut at 682 quads: not counted as extra.
+    pub truncated: usize,
+    // Port side-panel quads the reference did not repaint: not counted as extra.
+    pub accepted: usize,
+}
+
+impl LabelDiff {
+    fn add(&mut self, o: &LabelDiff) {
+        self.same += o.same;
+        self.missing += o.missing;
+        self.extra += o.extra;
+        self.changed += o.changed;
+        self.truncated += o.truncated;
+        self.accepted += o.accepted;
+        for k in 0..6 {
+            self.why[k] += o.why[k];
+        }
+    }
+}
+
+pub type SpriteKey = (Rc<str>, [i32; 4]);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum QuadKind {
+    Changed,
+    Missing,
+    Extra,
+}
+
+impl QuadKind {
+    pub fn name(self) -> &'static str {
+        match self {
+            QuadKind::Changed => "changed",
+            QuadKind::Missing => "missing",
+            QuadKind::Extra => "extra",
+        }
+    }
+}
+
+// One non-same quad of a frame (truncated / accepted / edge quads excluded); `why` = D_* mask for changed.
+// Clears, copies and other polygons come as `tex` = their text with rect 0 and no quads.
+#[derive(Clone, Debug)]
+pub struct QuadDiff {
+    pub tex: Rc<str>,
+    pub rect: [i32; 4],
+    pub kind: QuadKind,
+    pub why: u8,
+    pub r: Option<[Vtx; 4]>,
+    pub p: Option<[Vtx; 4]>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct FrameDiff {
+    pub total: LabelDiff,
+    pub reordered: usize,
+    pub ref_quads: usize,
+    pub port_quads: usize,
+    pub by_label: BTreeMap<Rc<str>, LabelDiff>,
+    pub sprites_missing: Vec<SpriteKey>,
+    pub sprites_extra: Vec<SpriteKey>,
+    pub other_missing: Vec<String>,
+    pub other_extra: Vec<String>,
+    // `P list 4` markers in the reference frame: batches the probe cut at 682 quads.
+    pub cuts: usize,
+    pub quads: Vec<QuadDiff>,
+}
+
+impl FrameDiff {
+    pub fn score(&self) -> usize {
+        self.total.missing
+            + self.total.extra
+            + self.total.changed
+            + self.other_missing.len()
+            + self.other_extra.len()
+    }
+
+    // One-line summary plus the labels with the most differences.
+    pub fn describe(&self, max_labels: usize) -> String {
+        let t = &self.total;
+        let mut s = format!(
+            "quads ref {} port {}: same {} changed {} missing {} extra {} reordered {}",
+            self.ref_quads, self.port_quads, t.same, t.changed, t.missing, t.extra, self.reordered
+        );
+        if t.truncated + t.accepted > 0 {
+            let _ = write!(
+                s,
+                " [ref truncated {}, accepted {}]",
+                t.truncated, t.accepted
+            );
+        }
+        if t.why.iter().any(|&x| x > 0) {
+            s.push_str(" (");
+            s.push_str(&why_str(&t.why));
+            s.push(')');
+        }
+        let mut labels: Vec<_> = self
+            .by_label
+            .iter()
+            .filter(|(_, d)| d.missing + d.extra + d.changed > 0)
+            .collect();
+        labels.sort_by_key(|(_, d)| std::cmp::Reverse(d.missing + d.extra + d.changed));
+        for (l, d) in labels.into_iter().take(max_labels) {
+            let _ = write!(
+                s,
+                "\n  {l}: missing {} extra {} changed {}",
+                d.missing, d.extra, d.changed
+            );
+            if d.why.iter().any(|&x| x > 0) {
+                let _ = write!(s, " ({})", why_str(&d.why));
+            }
+        }
+        for (name, v) in [
+            ("missing", &self.other_missing),
+            ("extra", &self.other_extra),
+        ] {
+            for o in v.iter().take(4) {
+                let _ = write!(s, "\n  {name}: {o}");
+            }
+        }
+        let sk = |k: &SpriteKey| format!("{}[{},{},{},{}]", k.0, k.1[0], k.1[1], k.1[2], k.1[3]);
+        if !self.sprites_missing.is_empty() {
+            let v: Vec<_> = self.sprites_missing.iter().take(8).map(sk).collect();
+            let _ = write!(s, "\n  sprites only in ref: {}", v.join(" "));
+        }
+        if !self.sprites_extra.is_empty() {
+            let v: Vec<_> = self.sprites_extra.iter().take(8).map(sk).collect();
+            let _ = write!(s, "\n  sprites only in port: {}", v.join(" "));
+        }
+        s
+    }
+}
+
+pub fn why_str(w: &[usize; 6]) -> String {
+    (0..6)
+        .filter(|&k| w[k] > 0)
+        .map(|k| format!("{} {}", D_NAMES[k], w[k]))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+struct Item<'a> {
+    order: usize,
+    prim: &'a Prim,
+    q: [Vtx; 4],
+    key: [i32; 4],
+    c: [f32; 2],
+    // Within the viewport-edge band of `off_vp`: not counted when unmatched.
+    edge: bool,
+}
+
+// Texel rect of a textured quad: the matching key between reference and port items (untextured → 0).
+fn sprite_rect(p: &Prim, q: &[Vtx; 4]) -> [i32; 4] {
+    if !p.textured() {
+        return [0; 4];
+    }
+    let (mut u0, mut v0, mut u1, mut v1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+    for v in q {
+        u0 = u0.min(v.u);
+        u1 = u1.max(v.u);
+        v0 = v0.min(v.v);
+        v1 = v1.max(v.v);
+    }
+    let (w, h) = (p.tw as f32, p.th as f32);
+    [
+        (u0 * w).round() as i32,
+        (v0 * h).round() as i32,
+        (u1 * w).round() as i32,
+        (v1 * h).round() as i32,
+    ]
+}
+
+// The fps counter at (512, 464) and the replay fps text "%2d" at (384, 448) depend on host timing, so
+// they are never compared.
+fn is_fps(p: &Prim, q: &[Vtx; 4]) -> bool {
+    p.tex.starts_with("ascii.anm")
+        && (q.iter().all(|v| v.x >= 496.0 && v.y >= 456.0)
+            || q.iter().all(|v| {
+                // x to 426: a stored fps ≥ 100 prints three glyphs.
+                (383.0..=426.0).contains(&v.x)
+                    && (447.0..=464.0).contains(&v.y)
+                    && (v.col == 0xffff_ffd0 || v.col == 0xffff_4040)
+            }))
+}
+
+fn in_playfield(q: &[Vtx; 4]) -> bool {
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+    for v in q {
+        x0 = x0.min(v.x);
+        x1 = x1.max(v.x);
+        y0 = y0.min(v.y);
+        y1 = y1.max(v.y);
+    }
+    x1 > PLAYFIELD[0] && x0 < PLAYFIELD[2] && y1 > PLAYFIELD[1] && y0 < PLAYFIELD[3]
+}
+
+// The probe's 4 leftover vertices of a sprite batch cut at 682 quads.
+fn is_cut(kind: &str, v: &[Vtx]) -> bool {
+    kind == "list" && v.len() == 4
+}
+
+// Side panel: the reference repaints it only for dirty rows, the port every gameplay frame; unmatched full-screen
+// port quads that cover no playfield pixel are accepted. Coverage by pixel centres (on integers), so a tile edge at
+// 415.5 does not reach playfield pixel 415.
+fn panel_repaint(fr: &Frame, p: &Prim, q: &[Vtx; 4]) -> bool {
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+    for v in q {
+        x0 = x0.min(v.x);
+        x1 = x1.max(v.x);
+        y0 = y0.min(v.y);
+        y1 = y1.max(v.y);
+    }
+    let [px0, py0, px1, py1] = PLAYFIELD;
+    fr.scene == 2
+        && p.vp == [0.0, 0.0, 640.0, 480.0]
+        && (x1 <= px0 || x0 >= px1 - 0.5 || y1 <= py0 || y0 >= py1 - 0.5)
+}
+
+// A quad ≥ 0.5 px outside the viewport covers no pixel centre and whether the cull keeps it depends on f32 rounding,
+// so it is dropped on both sides (near edges / within 1 px of far ones too, top-left rule; from -0.05 for the log's
+// 2-decimal rounding); one at most 0.25 px past that edge is `Edge`: matched normally, not counted when unmatched.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum VpSide {
+    In,
+    Edge,
+    Off,
+}
+
+fn off_vp(vp: [f32; 4], q: &[Vtx; 4]) -> VpSide {
+    let [vx, vy, vw, vh] = vp;
+    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+    for v in q {
+        x0 = x0.min(v.x);
+        x1 = x1.max(v.x);
+        y0 = y0.min(v.y);
+        y1 = y1.max(v.y);
+    }
+    let off =
+        |m: f32| x1 <= vx + m || y1 <= vy + m || x0 > vx + vw - 1.0 - m || y0 > vy + vh - 1.0 - m;
+    if off(-0.05) {
+        VpSide::Off
+    } else if off(0.25) {
+        VpSide::Edge
+    } else {
+        VpSide::In
+    }
+}
+
+// A vertex in front of the near plane (z < 0) or on/behind the camera plane (rhw <= 0): its screen position is f32
+// noise around w ≈ 0, D3D clips it in homogeneous space.
+fn clip_vertex(v: &Vtx) -> bool {
+    v.z < 0.0 || v.rhw <= 0.0
+}
+
+// `off_vp`, except that a quad with a clip-space vertex is never dropped: its screen bbox is not its visible extent.
+fn quad_side(vp: [f32; 4], q: &[Vtx; 4]) -> VpSide {
+    if q.iter().any(clip_vertex) {
+        VpSide::In
+    } else {
+        off_vp(vp, q)
+    }
+}
+
+// Matching centre from the vertices with z in [0, 1] and rhw > 0 when only some are: a near-plane vertex (~1e6 px)
+// or a camera-plane one would move it out of the matching window although compare() accepts it.
+fn match_centre(q: &[Vtx; 4]) -> [f32; 2] {
+    let inr: Vec<&Vtx> = q
+        .iter()
+        .filter(|v| (0.0..=1.0).contains(&v.z) && v.rhw > 0.0)
+        .collect();
+    if !inr.is_empty() && inr.len() < 4 {
+        let n = inr.len() as f32;
+        [
+            inr.iter().map(|v| v.x).sum::<f32>() / n,
+            inr.iter().map(|v| v.y).sum::<f32>() / n,
+        ]
+    } else {
+        [
+            (q[0].x + q[1].x + q[2].x + q[3].x) / 4.0,
+            (q[0].y + q[1].y + q[2].y + q[3].y) / 4.0,
+        ]
+    }
+}
+
+// Homogeneous clip coordinates (x·w, y·w, z·w, w) of a logged vertex, w = 1/rhw (0 for rhw 0).
+fn clip_coords(v: &Vtx, vp: [f32; 4]) -> [f64; 4] {
+    let w = if v.rhw == 0.0 {
+        0.0
+    } else {
+        1.0 / f64::from(v.rhw)
+    };
+    let nx = (f64::from(v.x) - f64::from(vp[0])) / (f64::from(vp[2]) * 0.5) - 1.0;
+    let ny = 1.0 - (f64::from(v.y) - f64::from(vp[1])) / (f64::from(vp[3]) * 0.5);
+    [nx * w, ny * w, f64::from(v.z) * w, w]
+}
+
+// Comparable quads of a frame (strips split into quads); clears, copies and other polygons go to `others` as text.
+fn items<'a>(fr: &'a Frame, o: &Opts, others: &mut Vec<String>) -> Vec<Item<'a>> {
+    let mut out = Vec::new();
+    let push = |p: &'a Prim, q: [Vtx; 4], out: &mut Vec<Item<'a>>| {
+        let side = quad_side(p.vp, &q);
+        if is_fps(p, &q) || (o.playfield && !in_playfield(&q)) || side == VpSide::Off {
+            return;
+        }
+        let c = match_centre(&q);
+        out.push(Item {
+            order: out.len(),
+            prim: p,
+            key: sprite_rect(p, &q),
+            q,
+            c,
+            edge: side == VpSide::Edge,
+        });
+    };
+    for p in &fr.prims {
+        match &p.kind {
+            Kind::Quad(q) => push(p, *q, &mut out),
+            Kind::Poly(k, v) if &**k == "strip" && v.len() >= 4 => {
+                for i in (0..v.len() - 3).step_by(2) {
+                    push(p, [v[i], v[i + 1], v[i + 2], v[i + 3]], &mut out);
+                }
+            }
+            Kind::Poly(k, v) if is_cut(k, v) => {}
+            Kind::Poly(k, v) => others.push(format!("P {k} {} ({})", v.len(), p.tex)),
+            Kind::Clear(w, c) => {
+                let vp = format!("{} {} {} {}", p.vp[0], p.vp[1], p.vp[2], p.vp[3]);
+                if !o.playfield || p.vp == [32.0, 16.0, 384.0, 448.0] {
+                    if w.contains('t') {
+                        others.push(format!("C {w} {c:08x} @ {vp}"));
+                    } else {
+                        others.push(format!("C {w} @ {vp}"));
+                    }
+                }
+            }
+            Kind::Copy(k) => {
+                if !o.playfield {
+                    others.push(format!("K {k}"));
+                }
+            }
+        }
+    }
+    out
+}
+
+// Position tolerance: 0.03 px plus a relative term for large (3D) coordinates; colours may differ by 1 per channel.
+fn tol(v: f32) -> f32 {
+    0.03 + 1e-4 * v.abs()
+}
+
+fn close(a: f32, b: f32, t: f32) -> bool {
+    (a.is_nan() && b.is_nan()) || (a - b).abs() <= t
+}
+
+fn col_close(a: u32, b: u32) -> bool {
+    // Alpha-0 ribbon ends keep stack-residue RGB (accepted approximation): two alpha-0 colours are equal.
+    if a >> 24 == 0 && b >> 24 == 0 {
+        return true;
+    }
+    (0..4).all(|k| ((a >> (k * 8)) as u8).abs_diff((b >> (k * 8)) as u8) <= 1)
+}
+
+fn compare(a: &Item, b: &Item) -> u8 {
+    let mut d = 0;
+    let size = {
+        let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+        for v in &a.q {
+            (x0, x1, y0, y1) = (x0.min(v.x), x1.max(v.x), y0.min(v.y), y1.max(v.y));
+        }
+        (x1 - x0).max(y1 - y0).min(4096.0)
+    };
+    // Software-projected 3D quads (ztest=le): D3DXVec3Project precision, 4e-4 of the quad size.
+    let proj = a.prim.state.contains("ztest=le");
+    let ha = a.q.map(|v| clip_coords(&v, a.prim.vp));
+    let hb = b.q.map(|v| clip_coords(&v, b.prim.vp));
+    let hmax = ha
+        .iter()
+        .chain(&hb)
+        .flatten()
+        .fold(0f64, |m, h| m.max(h.abs().min(1e4)));
+    for (i, (x, y)) in a.q.iter().zip(&b.q).enumerate() {
+        // 3D-quad vertex in front of / behind the camera plane: compared in clip space, no z/rhw bit.
+        if proj && (clip_vertex(x) || clip_vertex(y)) {
+            let (p, r) = (ha[i], hb[i]);
+            let (nx, ny) = if p[3] == 0.0 {
+                (0.0, 0.0)
+            } else {
+                (p[0] / p[3], p[1] / p[3])
+            };
+            // 2e-4 of the clip extent plus two 4-decimal roundings of the logged rhw (Δw = w²·1e-4).
+            let t = 1e-3 + 2e-4 * hmax + 1e-4 * p[3] * p[3] * (1.0 + nx.abs() + ny.abs());
+            // rhw 0 = w exactly 0, the hook loses x/y/z: only w is compared.
+            let k0 = if x.rhw == 0.0 || y.rhw == 0.0 { 3 } else { 0 };
+            if !(k0..4).all(|k| (p[k] - r[k]).abs() <= t) {
+                d |= D_POS;
+            }
+            if !close(x.u, y.u, 1e-4) || !close(x.v, y.v, 1e-4) {
+                d |= D_UV;
+            }
+            if !col_close(x.col, y.col) {
+                d |= D_COL;
+            }
+            continue;
+        }
+        // A vertex outside the depth range is a near-singular projection: 1e-3 relative.
+        let far = !(0.0..=1.0).contains(&x.z) || !(0.0..=1.0).contains(&y.z);
+        let ptol = |v: f32| {
+            let t = if far {
+                tol(v).max(1e-3 * v.abs())
+            } else {
+                tol(v)
+            };
+            if proj { t.max(4e-4 * size) } else { t }
+        };
+        if !close(x.x, y.x, ptol(x.x)) || !close(x.y, y.y, ptol(x.y)) {
+            d |= D_POS;
+        }
+        if !close(x.u, y.u, 1e-4) || !close(x.v, y.v, 1e-4) {
+            d |= D_UV;
+        }
+        if !col_close(x.col, y.col) {
+            d |= D_COL;
+        }
+        let rt = 2e-3 + 0.02 * x.rhw.abs();
+        let zt = if far {
+            2e-3f32.max(1e-3 * x.z.abs())
+        } else {
+            2e-3
+        };
+        if !close(x.z, y.z, zt) || !close(x.rhw, y.rhw, rt) {
+            d |= D_Z;
+        }
+    }
+    let flat = |st: &str| st.contains("ztest=always");
+    let strip = |st: &str| {
+        st.split(' ')
+            .filter(|k| !k.starts_with("zwrite="))
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let (sa, sb) = (&*a.prim.state, &*b.prim.state);
+    let both_2d = flat(sa) && flat(sb);
+    if sa != sb {
+        d |= if both_2d && strip(sa) == strip(sb) {
+            D_HIDDEN
+        } else {
+            D_STATE
+        };
+    }
+    // Pre-transformed vertices use the viewport only for clipping: a quad inside both viewports is unaffected.
+    let inside = |vp: [f32; 4]| {
+        a.q.iter()
+            .all(|v| v.x >= vp[0] && v.y >= vp[1] && v.x <= vp[0] + vp[2] && v.y <= vp[1] + vp[3])
+    };
+    if a.prim.vp != b.prim.vp && !(inside(a.prim.vp) && inside(b.prim.vp)) {
+        d |= D_STATE;
+    }
+    if both_2d && d & D_Z != 0 {
+        d = d & !D_Z | D_HIDDEN;
+    }
+    d
+}
+
+// Longest increasing subsequence length.
+fn lis(v: &[usize]) -> usize {
+    let mut tails: Vec<usize> = Vec::new();
+    for &x in v {
+        match tails.binary_search(&x) {
+            Ok(_) => {}
+            Err(i) if i == tails.len() => tails.push(x),
+            Err(i) => tails[i] = x,
+        }
+    }
+    tails.len()
+}
+
+// Port index per reference quad, (reference index, compare bits) per port quad.
+type Matches = (Vec<Option<usize>>, Vec<Option<(usize, u8)>>);
+
+// Pairs reference and port quads: identical ones first, then the nearest same-texture quad.
+fn match_quads(ri: &[Item], pi: &[Item]) -> Matches {
+    let mut rmatch: Vec<Option<usize>> = vec![None; ri.len()];
+    let mut pmatch: Vec<Option<(usize, u8)>> = vec![None; pi.len()];
+    // Pass 1: identical quads, looked up by sprite and position.
+    let cell = |it: &Item| {
+        (
+            (it.c[0] * 2.0).round() as i64,
+            (it.c[1] * 2.0).round() as i64,
+        )
+    };
+    let mut grid: HashMap<(&str, [i32; 4], i64, i64), Vec<usize>> = HashMap::new();
+    for (i, it) in ri.iter().enumerate() {
+        let (x, y) = cell(it);
+        grid.entry((&it.prim.tex, it.key, x, y))
+            .or_default()
+            .push(i);
+    }
+    for (j, it) in pi.iter().enumerate() {
+        let (x, y) = cell(it);
+        'found: for dx in -1..=1 {
+            for dy in -1..=1 {
+                if let Some(c) = grid.get(&(&*it.prim.tex, it.key, x + dx, y + dy)) {
+                    for &i in c {
+                        let w = compare(&ri[i], it);
+                        if rmatch[i].is_none() && w & !D_HIDDEN == 0 {
+                            rmatch[i] = Some(j);
+                            pmatch[j] = Some((i, w));
+                            break 'found;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Pass 2: nearest remaining quad of the same texture within 64 px → changed.
+    let mut near: HashMap<(&str, i64, i64), Vec<usize>> = HashMap::new();
+    let gc = |c: f32| (c / 32.0).floor() as i64;
+    for (i, it) in ri.iter().enumerate() {
+        if rmatch[i].is_none() {
+            near.entry((&it.prim.tex, gc(it.c[0]), gc(it.c[1])))
+                .or_default()
+                .push(i);
+        }
+    }
+    // Pass 2: candidate pairs within 64 px assigned globally by ascending cost (ties in port order), so a far port quad
+    // cannot take a ref quad whose own near port quad comes later in draw order.
+    let mut cand: Vec<(f32, usize, usize)> = Vec::new();
+    for (j, it) in pi.iter().enumerate() {
+        if pmatch[j].is_some() {
+            continue;
+        }
+        let (gx, gy) = (gc(it.c[0]), gc(it.c[1]));
+        for dx in -2..=2 {
+            for dy in -2..=2 {
+                let Some(c) = near.get(&(&*it.prim.tex, gx + dx, gy + dy)) else {
+                    continue;
+                };
+                for &i in c {
+                    if rmatch[i].is_some() {
+                        continue;
+                    }
+                    let a = &ri[i];
+                    let dist = (a.c[0] - it.c[0]).hypot(a.c[1] - it.c[1]);
+                    if dist > 64.0 {
+                        continue;
+                    }
+                    cand.push((dist + if a.key == it.key { 0.0 } else { 50.0 }, i, j));
+                }
+            }
+        }
+    }
+    cand.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.2.cmp(&b.2)));
+    for (_, i, j) in cand {
+        if rmatch[i].is_some() || pmatch[j].is_some() {
+            continue;
+        }
+        rmatch[i] = Some(j);
+        pmatch[j] = Some((i, compare(&ri[i], &pi[j])));
+    }
+    (rmatch, pmatch)
+}
+
+pub fn diff_frame(r: &Frame, p: &Frame, o: &Opts) -> FrameDiff {
+    let (mut ro, mut po) = (Vec::new(), Vec::new());
+    let ri = items(r, o, &mut ro);
+    let pi = items(p, o, &mut po);
+    let cuts: Vec<(&str, &str)> = r
+        .prims
+        .iter()
+        .filter(|p| matches!(&p.kind, Kind::Poly(k, v) if is_cut(k, v)))
+        .map(|p| (&*p.tex, &*p.state))
+        .collect();
+    let mut d = FrameDiff {
+        ref_quads: ri.len(),
+        port_quads: pi.len(),
+        cuts: cuts.len(),
+        ..Default::default()
+    };
+    let (rmatch, pmatch) = match_quads(&ri, &pi);
+    for (i, it) in ri.iter().enumerate() {
+        let l = d.by_label.entry(it.prim.tex.clone()).or_default();
+        if rmatch[i].is_none() && !it.edge {
+            l.missing += 1;
+            d.quads.push(QuadDiff {
+                tex: it.prim.tex.clone(),
+                rect: it.key,
+                kind: QuadKind::Missing,
+                why: 0,
+                r: Some(it.q),
+                p: None,
+            });
+        }
+    }
+    for (j, it) in pi.iter().enumerate() {
+        let l = d.by_label.entry(it.prim.tex.clone()).or_default();
+        match pmatch[j] {
+            // The cut part of a batch is not identified: any unmatched port quad with a cut batch's texture and state.
+            None if cuts.contains(&(&*it.prim.tex, &*it.prim.state)) => l.truncated += 1,
+            None if panel_repaint(p, it.prim, &it.q) => l.accepted += 1,
+            None if it.edge => {}
+            None => {
+                l.extra += 1;
+                d.quads.push(QuadDiff {
+                    tex: it.prim.tex.clone(),
+                    rect: it.key,
+                    kind: QuadKind::Extra,
+                    why: 0,
+                    r: None,
+                    p: Some(it.q),
+                });
+            }
+            Some((i, w)) => {
+                if w & !D_HIDDEN == 0 {
+                    l.same += 1;
+                } else {
+                    l.changed += 1;
+                    d.quads.push(QuadDiff {
+                        tex: ri[i].prim.tex.clone(),
+                        rect: ri[i].key,
+                        kind: QuadKind::Changed,
+                        why: w,
+                        r: Some(ri[i].q),
+                        p: Some(it.q),
+                    });
+                }
+                for k in 0..6 {
+                    if w & (1 << k) != 0 {
+                        l.why[k] += 1;
+                    }
+                }
+            }
+        }
+    }
+    for l in d.by_label.values() {
+        d.total.add(&l.clone());
+    }
+    let mut pairs: Vec<(usize, usize)> = rmatch
+        .iter()
+        .enumerate()
+        .filter_map(|(i, m)| m.map(|j| (ri[i].order, pi[j].order)))
+        .collect();
+    pairs.sort();
+    let seq: Vec<usize> = pairs.iter().map(|p| p.1).collect();
+    d.reordered = seq.len() - lis(&seq);
+    let set = |v: &[Item]| -> BTreeMap<SpriteKey, ()> {
+        v.iter()
+            .map(|it| ((it.prim.tex.clone(), it.key), ()))
+            .collect()
+    };
+    let (rs, ps) = (set(&ri), set(&pi));
+    d.sprites_missing = rs
+        .keys()
+        .filter(|k| !ps.contains_key(*k))
+        .cloned()
+        .collect();
+    d.sprites_extra = ps
+        .keys()
+        .filter(|k| !rs.contains_key(*k))
+        .cloned()
+        .collect();
+    let mut po_left = po.clone();
+    for x in &ro {
+        if let Some(k) = po_left.iter().position(|y| y == x) {
+            po_left.remove(k);
+        } else if x.contains("K screen ? full") {
+            // The D3DX surface load inside Anm_CaptureToTexture copies the whole back buffer in the recording
+            // environment; not a game draw.
+        } else {
+            d.other_missing.push(x.clone());
+        }
+    }
+    d.other_extra = po_left;
+    for (v, kind) in [
+        (&d.other_missing, QuadKind::Missing),
+        (&d.other_extra, QuadKind::Extra),
+    ] {
+        for o in v {
+            d.quads.push(QuadDiff {
+                tex: o.as_str().into(),
+                rect: [0; 4],
+                kind,
+                why: 0,
+                r: None,
+                p: None,
+            });
+        }
+    }
+    d
+}
+
+// ---- session over many frames ----
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyMode {
+    Scene,
+    Demo,
+    Present,
+}
+
+#[derive(Clone, Debug)]
+pub struct FrameNote {
+    pub key: String,
+    pub ref_present: i64,
+    pub port_present: i64,
+    pub score: usize,
+    pub text: String,
+    pub game_frame: i64,
+    pub demo: i32,
+}
+
+pub type GroupKey = (Rc<str>, [i32; 4], QuadKind, u8);
+
+// All non-same quads of one GroupKey over a run; presents are reference presents.
+#[derive(Clone, Debug)]
+pub struct Group {
+    pub first_present: i64,
+    pub first_port_present: i64,
+    pub first_scene: i32,
+    pub first_scene_frame: i64,
+    pub frames: usize,
+    pub quads: usize,
+    last_present: i64,
+    // Contiguous present ranges: the first GROUP_RANGES of them, plus the count of all.
+    pub ranges: Vec<(i64, i64)>,
+    pub n_ranges: usize,
+    pub ex_ref: Option<[Vtx; 4]>,
+    pub ex_port: Option<[Vtx; 4]>,
+}
+
+pub const GROUP_RANGES: usize = 8;
+// Groups listed in the text summary; index.html and groups.tsv list all.
+pub const GROUPS_TEXT_N: usize = 40;
+
+// "pos+colour" for a changed group's D_* mask, "-" otherwise; no spaces (groups.tsv).
+pub fn fields_str(kind: QuadKind, why: u8) -> String {
+    if kind != QuadKind::Changed {
+        return "-".into();
+    }
+    (0..6)
+        .filter(|&k| why & (1 << k) != 0)
+        .map(|k| D_NAMES[k].replace(' ', "_"))
+        .collect::<Vec<_>>()
+        .join("+")
+}
+
+pub fn quad_str(q: &Option<[Vtx; 4]>) -> String {
+    let Some(q) = q else {
+        return "-".into();
+    };
+    q.iter()
+        .map(|v| {
+            format!(
+                "{},{},{},{},{},{},{:08x}",
+                num(v.x, 2),
+                num(v.y, 2),
+                num_g(v.z),
+                num_g(v.rhw),
+                num_g(v.u),
+                num_g(v.v),
+                v.col
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+impl Group {
+    pub fn ranges_str(&self) -> String {
+        let mut s: Vec<String> = self
+            .ranges
+            .iter()
+            .map(|&(a, b)| {
+                if a == b {
+                    format!("{a}")
+                } else {
+                    format!("{a}-{b}")
+                }
+            })
+            .collect();
+        if self.n_ranges > self.ranges.len() {
+            s.push(format!("+{}", self.n_ranges - self.ranges.len()));
+        }
+        s.join(",")
+    }
+}
+
+pub const GROUPS_TSV_HEADER: &str = "texture\trect\tkind\tfields\tfirst_present\tfirst_port_present\tfirst_scene\t\
+    first_scene_frame\tframes\tquads\tn_ranges\tranges\tex_ref\tex_port";
+
+#[derive(Debug, Default)]
+pub struct Report {
+    pub compared: usize,
+    pub identical: usize,
+    pub ref_only: usize,
+    pub port_only: usize,
+    // Reference frames after the port's last frame (the port log ended early).
+    pub ref_after_port: usize,
+    pub first: Option<FrameNote>,
+    pub worst: Vec<FrameNote>,
+    pub total: LabelDiff,
+    pub reordered: usize,
+    pub ref_quads: usize,
+    pub by_label: BTreeMap<String, LabelDiff>,
+    pub others_missing: BTreeMap<String, usize>,
+    pub others_extra: BTreeMap<String, usize>,
+    pub ref_sprites: BTreeMap<(String, [i32; 4]), (i64, usize)>,
+    pub port_sprites: BTreeMap<(String, [i32; 4]), (i64, usize)>,
+    pub worst_n: usize,
+    // Frames with a reference batch cut / with accepted panel quads.
+    pub cut_frames: usize,
+    pub accepted_frames: usize,
+    // (ref present, port present, ref game frame, score) of every compared frame.
+    pub pairs: Vec<(i64, i64, i64, usize)>,
+    pub groups: HashMap<GroupKey, Group>,
+}
+
+impl Report {
+    pub fn new(worst_n: usize) -> Self {
+        Self {
+            worst_n,
+            ..Default::default()
+        }
+    }
+
+    // Exact-match percentage of the reference quads.
+    pub fn match_pct(&self) -> f64 {
+        if self.ref_quads == 0 {
+            100.0
+        } else {
+            100.0 * self.total.same as f64 / self.ref_quads as f64
+        }
+    }
+
+    pub fn add(&mut self, key: &str, r: &Frame, p: &Frame, d: &FrameDiff) {
+        self.compared += 1;
+        let score = d.score();
+        self.pairs.push((r.present, p.present, r.game_frame, score));
+        if score == 0 {
+            self.identical += 1;
+        }
+        self.total.add(&d.total);
+        self.cut_frames += usize::from(d.cuts > 0);
+        self.accepted_frames += usize::from(d.total.accepted > 0);
+        self.reordered += d.reordered;
+        self.ref_quads += d.ref_quads;
+        for (l, x) in &d.by_label {
+            self.by_label.entry(l.to_string()).or_default().add(x);
+        }
+        for o in &d.other_missing {
+            *self.others_missing.entry(o.clone()).or_default() += 1;
+        }
+        for o in &d.other_extra {
+            *self.others_extra.entry(o.clone()).or_default() += 1;
+        }
+        self.add_groups(r, p, d);
+        let note = || FrameNote {
+            key: key.to_string(),
+            ref_present: r.present,
+            port_present: p.present,
+            score,
+            text: d.describe(8),
+            game_frame: r.game_frame,
+            demo: r.demo,
+        };
+        if score > 0 && self.first.is_none() {
+            self.first = Some(note());
+        }
+        // Worst frames, at least 60 presents apart so they show different moments.
+        if score > 0 && self.worst_n > 0 {
+            let near = self
+                .worst
+                .iter()
+                .position(|w| (w.ref_present - r.present).abs() < 60);
+            match near {
+                Some(i) if self.worst[i].score >= score => {}
+                Some(i) => self.worst[i] = note(),
+                None if self.worst.len() < self.worst_n => self.worst.push(note()),
+                None if self.worst.last().is_some_and(|w| w.score < score) => {
+                    *self.worst.last_mut().unwrap() = note();
+                }
+                None => {}
+            }
+            self.worst.sort_by_key(|w| std::cmp::Reverse(w.score));
+        }
+    }
+
+    fn add_groups(&mut self, r: &Frame, p: &Frame, d: &FrameDiff) {
+        for q in &d.quads {
+            let g = self
+                .groups
+                .entry((q.tex.clone(), q.rect, q.kind, q.why))
+                .or_insert_with(|| Group {
+                    first_present: r.present,
+                    first_port_present: p.present,
+                    first_scene: r.scene,
+                    first_scene_frame: r.scene_frame,
+                    frames: 0,
+                    quads: 0,
+                    last_present: i64::MIN,
+                    ranges: Vec::new(),
+                    n_ranges: 0,
+                    ex_ref: q.r,
+                    ex_port: q.p,
+                });
+            g.quads += 1;
+            if g.last_present == r.present {
+                continue;
+            }
+            g.frames += 1;
+            if g.last_present != i64::MIN && r.present == g.last_present + 1 {
+                if g.ranges.len() == g.n_ranges {
+                    g.ranges.last_mut().unwrap().1 = r.present;
+                }
+            } else {
+                g.n_ranges += 1;
+                if g.ranges.len() < GROUP_RANGES {
+                    g.ranges.push((r.present, r.present));
+                }
+            }
+            g.last_present = r.present;
+        }
+    }
+
+    // Groups sorted by first present (then key).
+    pub fn sorted_groups(&self) -> Vec<(&GroupKey, &Group)> {
+        let mut v: Vec<_> = self.groups.iter().collect();
+        v.sort_by_key(|(k, g)| (g.first_present, (*k).clone()));
+        v
+    }
+
+    pub fn groups_text(&self, n: usize) -> String {
+        let v = self.sorted_groups();
+        let mut s = format!(
+            "difference groups: {} (by first present, top {n})\n",
+            v.len()
+        );
+        for (k, g) in v.iter().take(n) {
+            let _ = writeln!(
+                s,
+                "  {} [{},{},{},{}] {} {}: first present {} (scene {} frame {}), {} frames, {} quads, presents {}",
+                k.0,
+                k.1[0],
+                k.1[1],
+                k.1[2],
+                k.1[3],
+                k.2.name(),
+                fields_str(k.2, k.3),
+                g.first_present,
+                g.first_scene,
+                g.first_scene_frame,
+                g.frames,
+                g.quads,
+                g.ranges_str()
+            );
+        }
+        s
+    }
+
+    pub fn groups_tsv(&self) -> String {
+        let mut s = format!("{GROUPS_TSV_HEADER}\n");
+        let clean = |t: &str| t.replace(['\t', '\n'], " ");
+        for (k, g) in self.sorted_groups() {
+            let _ = writeln!(
+                s,
+                "{}\t{},{},{},{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                clean(&k.0),
+                k.1[0],
+                k.1[1],
+                k.1[2],
+                k.1[3],
+                k.2.name(),
+                fields_str(k.2, k.3),
+                g.first_present,
+                g.first_port_present,
+                g.first_scene,
+                g.first_scene_frame,
+                g.frames,
+                g.quads,
+                g.n_ranges,
+                g.ranges_str(),
+                quad_str(&g.ex_ref),
+                quad_str(&g.ex_port)
+            );
+        }
+        s
+    }
+
+    pub fn note_sprites(&mut self, fr: &Frame, port: bool, o: &Opts) {
+        let mut others = Vec::new();
+        let set = if port {
+            &mut self.port_sprites
+        } else {
+            &mut self.ref_sprites
+        };
+        for it in items(fr, o, &mut others) {
+            let e = set
+                .entry((it.prim.tex.to_string(), it.key))
+                .or_insert((fr.present, 0));
+            e.1 += 1;
+        }
+    }
+
+    pub fn summary(&self) -> String {
+        let t = &self.total;
+        let mut s = format!(
+            "{} frames compared ({} identical), {} only in ref, {} only in port\n\
+             ref quads {}: same {} ({:.2}%), changed {}, missing {}, extra {}, reordered {}\n",
+            self.compared,
+            self.identical,
+            self.ref_only,
+            self.port_only,
+            self.ref_quads,
+            t.same,
+            self.match_pct(),
+            t.changed,
+            t.missing,
+            t.extra,
+            self.reordered
+        );
+        if self.ref_after_port > 0 {
+            let _ = writeln!(
+                s,
+                "port log ended early: {} reference frames after its last frame",
+                self.ref_after_port
+            );
+        }
+        if t.why.iter().any(|&x| x > 0) {
+            let _ = writeln!(s, "changed by: {}", why_str(&t.why));
+        }
+        let _ = writeln!(
+            s,
+            "reference truncated: {} frames with a 682-quad cut, {} port quads beyond the cut\n\
+             accepted (side-panel repaint): {} port quads in {} frames\n\
+             extra incl. truncated + accepted: {}",
+            self.cut_frames,
+            t.truncated,
+            t.accepted,
+            self.accepted_frames,
+            t.extra + t.truncated + t.accepted
+        );
+        let mut acc: Vec<_> = self
+            .by_label
+            .iter()
+            .filter(|(_, d)| d.accepted + d.truncated > 0)
+            .collect();
+        acc.sort_by_key(|(_, d)| std::cmp::Reverse(d.accepted + d.truncated));
+        for (l, d) in acc {
+            let _ = writeln!(
+                s,
+                "  {l:24} accepted {:7} truncated {:7}",
+                d.accepted, d.truncated
+            );
+        }
+        match &self.first {
+            Some(n) => {
+                let _ = writeln!(
+                    s,
+                    "first divergence: {} (ref present {}, port present {})\n  {}",
+                    n.key,
+                    n.ref_present,
+                    n.port_present,
+                    n.text.replace('\n', "\n  ")
+                );
+            }
+            None => s.push_str("no divergence\n"),
+        }
+        // Debug: `TH08_DIFF_LABELS=<n>` lists up to n textures, identical ones included.
+        let all: Option<usize> = std::env::var("TH08_DIFF_LABELS")
+            .ok()
+            .and_then(|v| v.parse().ok());
+        let mut labels: Vec<_> = self
+            .by_label
+            .iter()
+            .filter(|(_, d)| all.is_some() || d.missing + d.extra + d.changed > 0)
+            .collect();
+        labels.sort_by_key(|(_, d)| std::cmp::Reverse(d.missing + d.extra + d.changed));
+        s.push_str("by texture (missing / extra / changed):\n");
+        let n = all.unwrap_or(25);
+        for (l, d) in labels.iter().take(n) {
+            let _ = write!(
+                s,
+                "  {l:24} same {:7} missing {:7} extra {:7} changed {:7}",
+                d.same, d.missing, d.extra, d.changed
+            );
+            if d.why.iter().any(|&x| x > 0) {
+                let _ = write!(s, "  ({})", why_str(&d.why));
+            }
+            s.push('\n');
+        }
+        for (name, m) in [
+            ("missing", &self.others_missing),
+            ("extra", &self.others_extra),
+        ] {
+            let mut v: Vec<_> = m.iter().collect();
+            v.sort_by_key(|x| std::cmp::Reverse(*x.1));
+            for (o, n) in v.iter().take(6) {
+                let _ = writeln!(s, "  {name} in {n} frames: {o}");
+            }
+        }
+        let only = |a: &BTreeMap<(String, [i32; 4]), (i64, usize)>,
+                    b: &BTreeMap<(String, [i32; 4]), (i64, usize)>| {
+            a.iter()
+                .filter(|(k, _)| !b.contains_key(*k))
+                .map(|((l, r), (f, n))| {
+                    format!("{l}[{},{},{},{}] first {f} ×{n}", r[0], r[1], r[2], r[3])
+                })
+                .collect::<Vec<_>>()
+        };
+        if !self.ref_sprites.is_empty() {
+            let a = only(&self.ref_sprites, &self.port_sprites);
+            let b = only(&self.port_sprites, &self.ref_sprites);
+            let _ = writeln!(s, "sprites never drawn by the port: {}", a.len());
+            for x in a.iter().take(30) {
+                let _ = writeln!(s, "  {x}");
+            }
+            let _ = writeln!(s, "sprites only the port draws: {}", b.len());
+            for x in b.iter().take(30) {
+                let _ = writeln!(s, "  {x}");
+            }
+        }
+        s.push_str(&self.groups_text(GROUPS_TEXT_N));
+        s
+    }
+}
+
+// Scene key with visit numbers: (scene, n-th entry of that scene, scene_frame).
+pub fn scene_keys(frames: &[Frame]) -> Vec<(i32, u32, i64)> {
+    let mut visits: HashMap<i32, u32> = HashMap::new();
+    let mut last = i32::MIN;
+    frames
+        .iter()
+        .map(|f| {
+            if f.scene != last || f.scene_frame == 1 {
+                *visits.entry(f.scene).or_default() += 1;
+                last = f.scene;
+            }
+            (f.scene, visits[&f.scene], f.scene_frame)
+        })
+        .collect()
+}
+
+// In-memory comparison keyed by scene (title intro: ±1 frame slack) or present.
+pub fn diff_all(r: &[Frame], p: &[Frame], mode: KeyMode, o: &Opts, worst: usize) -> Report {
+    let mut rep = Report::new(worst);
+    let (rk, pk) = match mode {
+        KeyMode::Scene => (scene_keys(r), scene_keys(p)),
+        _ => (
+            r.iter().map(|f| (0, 0, f.present)).collect(),
+            p.iter().map(|f| (0, 0, f.present)).collect(),
+        ),
+    };
+    let index: HashMap<(i32, u32, i64), usize> =
+        pk.iter().enumerate().map(|(i, k)| (*k, i)).collect();
+    let mut used = vec![false; p.len()];
+    let mut last_matched = None;
+    for (i, k) in rk.iter().enumerate() {
+        let slack = mode == KeyMode::Scene && k.0 == 1 && k.1 == 1 && k.2 <= 120;
+        let cands: Vec<i64> = if slack { vec![0, -1, 1] } else { vec![0] };
+        let mut best: Option<(usize, FrameDiff)> = None;
+        for dk in cands {
+            let Some(&j) = index.get(&(k.0, k.1, k.2 + dk)) else {
+                continue;
+            };
+            let d = diff_frame(&r[i], &p[j], o);
+            if best.as_ref().is_none_or(|b| d.score() < b.1.score()) {
+                best = Some((j, d));
+            }
+            if best.as_ref().is_some_and(|b| b.1.score() == 0) {
+                break;
+            }
+        }
+        rep.note_sprites(&r[i], false, o);
+        match best {
+            Some((j, d)) => {
+                used[j] = true;
+                last_matched = Some(i);
+                let key = match mode {
+                    KeyMode::Scene => format!("scene {} visit {} frame {}", k.0, k.1, k.2),
+                    _ => format!("present {}", k.2),
+                };
+                rep.add(&key, &r[i], &p[j], &d);
+            }
+            None => rep.ref_only += 1,
+        }
+    }
+    for f in p {
+        rep.note_sprites(f, true, o);
+    }
+    rep.port_only = used.iter().filter(|u| !**u).count();
+    // Unmatched reference frames are only a shortfall once the port log has run out.
+    if used.last().is_none_or(|u| *u) {
+        rep.ref_after_port = r.len() - last_matched.map_or(0, |i| i + 1);
+    }
+    rep
+}
+
+// Streaming comparison keyed by demo frame (frames of one demo frame number are paired in order).
+pub struct DemoMerge<I: Iterator<Item = Frame>> {
+    reference: I,
+    held: Option<(Frame, (i64, u32))>,
+    ref_occ: (i64, u32),
+    port_occ: (i64, u32),
+    pub opts: Opts,
+    pub report: Report,
+    pub range: Option<(i64, i64)>,
+    // Demo: demo frame (frames outside demos skipped); Present: present number.
+    pub key: KeyMode,
+}
+
+impl<I: Iterator<Item = Frame>> DemoMerge<I> {
+    pub fn new(reference: I, opts: Opts, worst: usize) -> Self {
+        Self {
+            reference,
+            held: None,
+            ref_occ: (-1, 0),
+            port_occ: (-1, 0),
+            opts,
+            report: Report::new(worst),
+            range: None,
+            key: KeyMode::Demo,
+        }
+    }
+
+    fn frame_key(&self, f: &Frame) -> Option<i64> {
+        match self.key {
+            KeyMode::Present => Some(f.present),
+            _ => (f.demo >= 0).then_some(f.demo_frame),
+        }
+    }
+
+    fn in_range(&self, df: i64) -> bool {
+        self.range.is_none_or(|(a, b)| df >= a && df <= b)
+    }
+
+    // Occurrence index of a frame key: several presents can share one demo frame (pause, loading).
+    fn occ(last: &mut (i64, u32), df: i64) -> (i64, u32) {
+        let n = if last.0 == df { last.1 + 1 } else { 0 };
+        *last = (df, n);
+        *last
+    }
+
+    fn next_ref(&mut self) -> Option<(Frame, (i64, u32))> {
+        if let Some(h) = self.held.take() {
+            return Some(h);
+        }
+        loop {
+            let f = self.reference.next()?;
+            let Some(fk) = self.frame_key(&f) else {
+                continue;
+            };
+            let k = Self::occ(&mut self.ref_occ, fk);
+            if !self.in_range(fk) {
+                continue;
+            }
+            self.report.note_sprites(&f, false, &self.opts);
+            return Some((f, k));
+        }
+    }
+
+    pub fn feed(&mut self, p: &Frame) {
+        let Some(pk) = self.frame_key(p) else {
+            return;
+        };
+        let key = Self::occ(&mut self.port_occ, pk);
+        if !self.in_range(pk) {
+            return;
+        }
+        self.report.note_sprites(p, true, &self.opts);
+        loop {
+            let Some((r, rk)) = self.next_ref() else {
+                self.report.port_only += 1;
+                return;
+            };
+            match rk.cmp(&key) {
+                std::cmp::Ordering::Less => self.report.ref_only += 1,
+                std::cmp::Ordering::Equal => {
+                    let d = diff_frame(&r, p, &self.opts);
+                    let k = match self.key {
+                        KeyMode::Present => format!(
+                            "present {} (scene {} frame {})",
+                            key.0, r.scene, r.scene_frame
+                        ),
+                        _ => format!("demo frame {} #{}", key.0, key.1),
+                    };
+                    self.report.add(&k, &r, p, &d);
+                    return;
+                }
+                std::cmp::Ordering::Greater => {
+                    self.held = Some((r, rk));
+                    self.report.port_only += 1;
+                    return;
+                }
+            }
+        }
+    }
+
+    // Counts the reference frames left after the port stopped.
+    pub fn finish(mut self) -> Report {
+        while self.next_ref().is_some() {
+            self.report.ref_only += 1;
+            self.report.ref_after_port += 1;
+        }
+        self.report
+    }
+}
+
+// ---- headless runs of the port (tests, drawrun) ----
+
+// One calc + draw + present; returns the logged frame text.
+pub fn step(ctx: &mut th08_core::game::Ctx) -> Option<(th08_core::task::Flow, Vec<String>)> {
+    let f = ctx.run_frame();
+    let frames = ctx
+        .drawlog
+        .as_mut()
+        .map(th08_core::drawfmt::Writer::take_frames)?;
+    Some((f, frames))
+}
+
+// Menu CLRD pokes of menu_clr: any-clear / no-continue masks of teams 0–2 on E–L.
+pub fn clr_pokes(g: &mut th08_core::gamemgr::Game) {
+    for (t, any, nc) in [(0, 0x41, 0x01), (1, 0x81, 0x81), (2, 0xC1, 0xC1)] {
+        g.clear_any[t][..4].fill(any);
+        g.clear_nc[t][..4].fill(nc);
+    }
+}
+
+// Start state of a menu script: a private save directory, empty for menu_base /
+// menu_clr; menu_mopup1 adds its score.dat and the four attract demos as replay/th8_01..04.rpy.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn menu_start_state(ctx: &mut th08_core::game::Ctx, name: &str) -> anyhow::Result<()> {
+    let dir = th08::settings::temp_dir().join(format!(
+        "th08_{name}_{}_{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("replay"))?;
+    if name == "menu_mopup1" {
+        let data = th08_core::testdata::repo_root().join("specs/data/drawlog");
+        let score = std::fs::read(data.join("menu_mopup1.score.dat"))?;
+        let now = ctx.host.ticks_ms();
+        ctx.w.game.load_score(Some(&score), now);
+        for n in 0..4 {
+            let r = ctx.archive.read(&format!("demorpy{n}.rpy"))?;
+            std::fs::write(dir.join(format!("replay/th8_{:02}.rpy", n + 1)), r)?;
+        }
+    }
+    th08::platform::tool_host(ctx)
+        .storage
+        .set_save_dir(Some(dir));
+    ctx.w.game.persist = true;
+    Ok(())
+}
+
+// Replays a menu input script: script frame 1 = the port's first main-menu frame (boot frames get input 0).
+pub fn run_menu_script(
+    ctx: &mut th08_core::game::Ctx,
+    script: &[u16],
+    clr: bool,
+    mut out: impl FnMut(String),
+) {
+    ctx.log_to_memory();
+    let mut k = 0usize;
+    for _ in 0..script.len() + 600 {
+        if k >= script.len() {
+            break;
+        }
+        th08::platform::tool_host(ctx).keys[0] = if k > 0 { script[k] } else { 0 };
+        if clr && (k + 1 == 100 || k + 1 == 280) {
+            clr_pokes(&mut ctx.w.game);
+        }
+        let Some((flow, frames)) = step(ctx) else {
+            return;
+        };
+        frames.into_iter().for_each(&mut out);
+        if k > 0 || ctx.w.game.scene == th08_core::types::SceneId::Menu {
+            k += 1;
+        }
+        if flow != th08_core::task::Flow::Continue {
+            break;
+        }
+    }
+}
+
+// Plays attract demo `n` from boot (no fast-forward) up to demo frame `last`.
+#[expect(clippy::cast_sign_loss, reason = "demo frames are ≥ 0")]
+pub fn run_demo(
+    ctx: &mut th08_core::game::Ctx,
+    n: u8,
+    last: i32,
+    mut out: impl FnMut(String),
+) -> anyhow::Result<()> {
+    let r = th08_core::replay::parse(
+        &ctx.archive.read(&format!("demorpy{n}.rpy"))?,
+        ctx.w.game.ver_list.get(),
+    )?;
+    ctx.w.game.replay_ff = false;
+    anyhow::ensure!(
+        th08_core::replay::start_playback(&mut ctx.w.game, r, None, Some(n)),
+        "demo has no stage"
+    );
+    ctx.log_to_memory();
+    let mut started = false;
+    for _ in 0..last as usize + 2000 {
+        let Some((flow, frames)) = step(ctx) else {
+            break;
+        };
+        frames.into_iter().for_each(&mut out);
+        let demo = ctx.w.game.flags & th08_core::gamemgr::F_DEMO != 0;
+        started |= demo;
+        if flow != th08_core::task::Flow::Continue
+            || (started && !demo)
+            || ctx.w.game.demo_frame > last
+        {
+            break;
+        }
+    }
+    Ok(())
+}
+
+// Tools-bound tests (headless `Gfx`, reference draw logs on disk).
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use th08_core::drawfmt::{Header, format_frame};
+    use th08_core::drawlist::{Blend, LogRec, LogTex, Rect, Vertex};
+
+    // Fog: C %g, 6 significant digits.
+    // Alpha-0 colours compare equal whatever their RGB; otherwise ±1 per channel.
+    // Quads ≥ 0.5 px outside the viewport are not compared; z ∉ [0, 1] gets 1e-3 relative.
+    #[test]
+    fn off_viewport_and_far_vertices() {
+        use VpSide::*;
+        let quad = |x: f32, y: f32, z: f32| -> [Vtx; 4] {
+            [(0.0, 0.0), (8.0, 0.0), (0.0, 8.0), (8.0, 8.0)].map(|(dx, dy)| Vtx {
+                x: x + dx,
+                y: y + dy,
+                z,
+                ..Vtx::default()
+            })
+        };
+        let vp = [32.0, 16.0, 384.0, 448.0];
+        assert_eq!(off_vp(vp, &quad(100.0, 464.0, 0.0)), Off);
+        assert_eq!(off_vp(vp, &quad(100.0, 462.0, 0.0)), In);
+        assert_eq!(off_vp(vp, &quad(100.0, 463.0, 0.0)), Edge);
+        assert_eq!(off_vp(vp, &quad(23.0, 100.0, 0.0)), Off);
+        assert_eq!(off_vp(vp, &quad(24.0, 100.0, 0.0)), Edge);
+        assert_eq!(off_vp(vp, &quad(100.0, 8.01, 0.0)), Edge);
+        assert_eq!(off_vp(vp, &quad(100.0, 8.06, 0.0)), Edge);
+        assert_eq!(off_vp(vp, &quad(100.0, 8.26, 0.0)), In);
+        assert_eq!(off_vp(vp, &quad(100.0, 462.8, 0.0)), Edge);
+        assert_eq!(off_vp(vp, &quad(25.0, 100.0, 0.0)), In);
+        let p = Prim {
+            tex: "stg7bg.anm#0".into(),
+            tw: 256,
+            th: 256,
+            state: "".into(),
+            vp,
+            kind: Kind::Quad([Vtx::default(); 4]),
+        };
+        let item = |q: [Vtx; 4]| Item {
+            order: 0,
+            prim: &p,
+            key: Default::default(),
+            q,
+            c: [0.0; 2],
+            edge: false,
+        };
+        let (a, b) = (
+            quad(-1.42e6, 100.0, -201.0),
+            quad(-1.42e6 + 200.0, 100.0, -201.0),
+        );
+        assert_eq!(compare(&item(a), &item(b)) & D_POS, 0);
+        let (a, b) = (quad(-1.42e6, 100.0, 0.5), quad(-1.42e6 + 200.0, 100.0, 0.5));
+        assert_ne!(compare(&item(a), &item(b)) & D_POS, 0);
+    }
+
+    // Clip-space compare of near/camera-plane vertices, matching centre without them, no off-viewport drop.
+    #[test]
+    fn clip_space_vertices() {
+        let vp = [32.0, 16.0, 384.0, 448.0];
+        let v = |x: f32, y: f32, z: f32, rhw: f32| Vtx {
+            x,
+            y,
+            z,
+            rhw,
+            ..Vtx::default()
+        };
+        let inside = [v(100.0, 100.0, 0.5, 0.01); 4];
+        let mut q = [v(-50.0, 100.0, 0.5, 0.01); 4];
+        q[3] = v(-3.0e6, 100.0, -5.0, -400.0);
+        assert_eq!(off_vp(vp, &q), VpSide::Off);
+        assert_eq!(quad_side(vp, &q), VpSide::In);
+        q[3] = v(-3.0e6, 100.0, 0.5, 0.0);
+        assert_eq!(quad_side(vp, &q), VpSide::In);
+        let q = [
+            v(100.0, 100.0, 0.5, 0.01),
+            v(110.0, 100.0, 0.5, 0.01),
+            v(100.0, 120.0, 0.5, 0.01),
+            v(5e6, 5e6, 0.5, -1.0),
+        ];
+        assert_eq!(match_centre(&q), [310.0 / 3.0, 320.0 / 3.0]);
+        assert_eq!(
+            quad_side(vp, &[v(-3.0e6, 100.0, 0.5, 0.01); 4]),
+            VpSide::Off
+        );
+        let p = Prim {
+            tex: "stg5bg.anm#0".into(),
+            tw: 256,
+            th: 256,
+            state: "ztest=le".into(),
+            vp,
+            kind: Kind::Quad([Vtx::default(); 4]),
+        };
+        let item = |q: [Vtx; 4]| Item {
+            order: 0,
+            prim: &p,
+            key: Default::default(),
+            q,
+            c: [0.0; 2],
+            edge: false,
+        };
+        // Same clip point (w ≈ −0.00235 vs −0.00232, clip x −380.5): screen x differs by millions of px, z/rhw too.
+        let at = |w: f64| {
+            let nx = -380.5 / w;
+            v(
+                (32.0 + (nx + 1.0) * 192.0) as f32,
+                100.0,
+                -0.01,
+                (1.0 / w) as f32,
+            )
+        };
+        let (mut a, mut b) = (inside, inside);
+        (a[0], b[0]) = (at(-0.002_349_8), at(-0.002_319_3));
+        assert_eq!(compare(&item(a), &item(b)) & (D_POS | D_Z), 0);
+        b[0] = at(-0.0030);
+        let mut b2 = b;
+        b2[0].x = a[0].x;
+        assert_ne!(compare(&item(a), &item(b2)) & D_POS, 0);
+        // rhw 0 on one side: only w is compared.
+        let (mut a, mut b) = (inside, inside);
+        (a[0], b[0]) = (v(224.0, 240.0, 0.0, 0.0), v(-1e7, 3e6, -2.0, 1e5));
+        assert_eq!(compare(&item(a), &item(b)) & (D_POS | D_Z), 0);
+        b[0] = v(224.0, 240.0, -2.0, 0.1);
+        assert_ne!(compare(&item(a), &item(b)) & D_POS, 0);
+        // Not a ztest=le quad: the old screen-space rules apply.
+        let p2 = Prim {
+            state: "ztest=always".into(),
+            ..p.clone()
+        };
+        let item2 = |q: [Vtx; 4]| Item {
+            prim: &p2,
+            ..item(q)
+        };
+        let (mut a, mut b) = (inside, inside);
+        (a[0], b[0]) = (at(-0.002_349_8), at(-0.002_319_3));
+        assert_ne!(compare(&item2(a), &item2(b)) & D_POS, 0);
+    }
+
+    // Ztest=le quads get 4e-4 × size; a viewport mismatch is ignored for a quad inside both viewports.
+    #[test]
+    fn projected_tolerance_and_viewport() {
+        fn item(p: &Prim, q: [Vtx; 4]) -> Item<'_> {
+            Item {
+                order: 0,
+                prim: p,
+                key: Default::default(),
+                q,
+                c: [0.0; 2],
+                edge: false,
+            }
+        }
+        let quad = |x: f32, s: f32| -> [Vtx; 4] {
+            [(0.0, 0.0), (s, 0.0), (0.0, s), (s, s)].map(|(dx, dy)| Vtx {
+                x: x + dx,
+                y: 100.0 + dy,
+                z: 0.5,
+                ..Vtx::default()
+            })
+        };
+        let prim = |state: &str, vp: [f32; 4]| Prim {
+            tex: "etama.anm#1".into(),
+            tw: 256,
+            th: 256,
+            state: state.into(),
+            vp,
+            kind: Kind::Quad([Vtx::default(); 4]),
+        };
+        let full = [0.0, 0.0, 640.0, 480.0];
+        let (le, plain) = (prim("ztest=le", full), prim("", full));
+        let (a, b) = (quad(100.0, 140.0), quad(100.04, 140.0));
+        assert_eq!(compare(&item(&le, a), &item(&le, b)) & D_POS, 0);
+        assert_ne!(compare(&item(&plain, a), &item(&plain, b)) & D_POS, 0);
+        let pf = prim("", [32.0, 16.0, 384.0, 448.0]);
+        assert_eq!(compare(&item(&plain, a), &item(&pf, a)) & D_STATE, 0);
+        let edge = quad(10.0, 20.0);
+        assert_ne!(compare(&item(&plain, edge), &item(&pf, edge)) & D_STATE, 0);
+    }
+
+    #[test]
+    fn alpha_zero_colours_equal() {
+        assert!(col_close(0x0091_0D20, 0x0000_0000));
+        assert!(col_close(0x8010_2030, 0x8111_2131));
+        assert!(!col_close(0x0110_2030, 0x0310_2030));
+        assert!(!col_close(0x0010_2030, 0x0190_2030));
+    }
+
+    #[test]
+    fn fog_num_like_printf_g() {
+        let cases = [
+            (294.58334, "294.583"),
+            (1800.0, "1800"),
+            (0.5, "0.5"),
+            (1_234_567.0, "1.23457e+06"),
+            (0.0001, "0.0001"),
+            (0.00001, "1e-05"),
+            (-12.25, "-12.25"),
+            (999_999.6, "1e+06"),
+            (0.0, "0"),
+        ];
+        for (v, s) in cases {
+            assert_eq!(num_g(v), s, "{v}");
+        }
+    }
+
+    // Current match level per reference (raise as differences get fixed): (identical frames, % same quads).
+    const MENU_BASE: (usize, f64) = (1930, 73.9);
+    const MENU_CLR: (usize, f64) = (900, 97.7);
+    const MENU_MOPUP1: (usize, f64) = (2700, 99.7);
+    // Demos 0–3, first chunk: % same quads (playfield).
+    const DEMO: [f64; 4] = [90.6, 71.6, 83.3, 86.9];
+
+    fn data(p: &str) -> std::path::PathBuf {
+        th08_core::testdata::repo_root()
+            .join("specs/data/drawlog")
+            .join(p)
+    }
+
+    fn ctx() -> Option<th08_core::game::Ctx> {
+        let dir = th08::settings::test_game_dir()?;
+        let gfx = pollster::block_on(th08_render::gfx::Gfx::headless()).ok()?;
+        let src = th08::sources::native(dir);
+        Some(
+            pollster::block_on(th08_core::game::Ctx::load_with(
+                src.clone(),
+                th08::settings::get().tool_io(gfx, &src),
+                th08::settings::get().core(),
+                false,
+            ))
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn format_round_trip() {
+        let tex = Some(LogTex {
+            label: "etama.anm#1".into(),
+            w: 256,
+            h: 256,
+        });
+        let v = |x: f32, y: f32, u: f32, v: f32| {
+            Vertex::screen(x + 0.5, y + 0.5, 0.0, [u, v], [255, 255, 255, 128])
+        };
+        let rect = [
+            v(10.0, 20.0, 0.0, 0.0),
+            v(26.0, 20.0, 0.0625, 0.0),
+            v(10.0, 36.0, 0.0, 0.0625),
+            v(26.0, 36.0, 0.0625, 0.0625),
+        ];
+        let mut rot = rect;
+        rot[1].pos[1] += 0.01;
+        let quad = |v| LogRec::Quad {
+            tex: tex.clone(),
+            id: th08_core::drawlist::TexId(3),
+            textured: true,
+            blend: Blend::Add,
+            test: false,
+            write: true,
+            vp: Rect::new(0.0, 0.0, 640.0, 480.0),
+            fog: None,
+            v,
+        };
+        let recs = [quad(rect), quad(rot)];
+        let h = Header {
+            present: 7,
+            scene: 2,
+            scene_frame: 3,
+            game_frame: 1,
+            demo: 0,
+            demo_frame: 1,
+            input: 0x11,
+        };
+        let text = format_frame(&h, &recs);
+        assert!(text.starts_with("F 7 2 3 1 0 1 0011 2\n"), "{text}");
+        assert!(
+            text.contains("\nR 10 20 26 36 0 0 0.0625 0.0625 80ffffff\n"),
+            "{text}"
+        );
+        assert!(text.contains("\nQ "), "{text}");
+        assert!(text.contains("S blend=add atest=ge4 ztest=always zwrite=1"));
+        let f = parse_str(&text);
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].prims.len(), 2);
+        let d = diff_frame(&f[0], &f[0], &Opts { playfield: false });
+        assert_eq!((d.score(), d.total.same), (0, 2));
+    }
+
+    // A z-only clear logs its ignored colour argument; a target clear its colour.
+    #[test]
+    fn clear_logs_colour_argument() {
+        let h = Header {
+            present: 1,
+            scene: 2,
+            scene_frame: 1,
+            game_frame: 1,
+            demo: 0,
+            demo_frame: 0,
+            input: 0,
+        };
+        let vp = Rect::new(0.0, 0.0, 640.0, 480.0);
+        let recs = [
+            LogRec::Clear {
+                vp,
+                color: None,
+                arg: 0xff40_4060,
+            },
+            LogRec::Clear {
+                vp,
+                color: Some([1, 2, 3, 255]),
+                arg: 0xff00_0000,
+            },
+        ];
+        let text = format_frame(&h, &recs);
+        assert!(text.contains("\nC z ff404060\n"), "{text}");
+        assert!(text.contains("\nC tz ff010203\n"), "{text}");
+    }
+
+    // The replay fps text near (384, 448) in white / red is skipped like the fps counter, other text is not.
+    #[test]
+    fn replay_fps_text_skipped() {
+        let p = Prim {
+            tex: "ascii.anm#0".into(),
+            tw: 256,
+            th: 256,
+            state: "".into(),
+            vp: [0.0, 0.0, 640.0, 480.0],
+            kind: Kind::Quad([Vtx::default(); 4]),
+        };
+        let q = |x: f32, y: f32, col: u32| -> [Vtx; 4] {
+            [(0.0, 0.0), (14.0, 0.0), (0.0, 16.0), (14.0, 16.0)].map(|(dx, dy)| Vtx {
+                x: x + dx,
+                y: y + dy,
+                col,
+                ..Vtx::default()
+            })
+        };
+        assert!(is_fps(&p, &q(383.5, 447.5, 0xffff_ffd0)));
+        assert!(is_fps(&p, &q(397.5, 447.5, 0xffff_4040)));
+        assert!(!is_fps(&p, &q(383.5, 447.5, 0xffff_ffff)));
+        assert!(!is_fps(&p, &q(300.5, 447.5, 0xffff_ffd0)));
+        assert!(is_fps(&p, &q(512.5, 464.5, 0xffff_ffff)));
+        assert!(is_fps(&p, &q(409.5, 447.5, 0xffff_ffd0)));
+    }
+
+    // Cut batches and the accepted side-panel repaint are reported apart from extra quads.
+    #[test]
+    fn cut_batch_and_panel_repaint_not_extra() {
+        let st = "T etama.anm#0 256 256\nS blend=alpha atest=ge4 ztest=always zwrite=0 c=tex*col a=tex*col\nV 0 0 640 480\n";
+        let r = |x: i32| format!("R {x} 100 {} 116 0 0 0.0625 0.0625 ffffffff\n", x + 16);
+        let cut = "P list 4 0 0 0 1 0 0 ffffffff 0 0 0 1 0 0 ffffffff 0 0 0 1 0 0 ffffffff 0 0 0 1 0 0 ffffffff\n";
+        let rtext = format!("F 1 2 1 1 -1 0 0 2\n{st}{}{}{cut}", r(100), r(140));
+        let ptext = format!(
+            "F 1 2 1 1 -1 0 0 4\n{st}{}{}{}T front.anm#0 256 256\n{}",
+            r(100),
+            r(140),
+            r(180),
+            r(500)
+        );
+        let (rf, pf) = (parse_str(&rtext), parse_str(&ptext));
+        let d = diff_frame(&rf[0], &pf[0], &Opts { playfield: false });
+        let t = &d.total;
+        assert_eq!(
+            (t.same, t.extra, t.truncated, t.accepted, d.cuts),
+            (2, 0, 1, 1, 1)
+        );
+        assert_eq!(d.score(), 0);
+    }
+
+    #[test]
+    fn short_port_log_reported() {
+        let st = "T etama.anm#0 256 256\nS blend=alpha atest=ge4 ztest=always zwrite=0 c=tex*col a=tex*col\nV 0 0 640 480\n";
+        let text = |n: i64| {
+            (1..=n)
+                .map(|k| format!("F {k} 2 {k} {k} -1 0 0 2\n{st}R 100 100 116 116 0 0 0.0625 0.0625 ffffffff\n"))
+                .collect::<String>()
+        };
+        let (r, p) = (parse_str(&text(10)), parse_str(&text(4)));
+        let o = Opts { playfield: false };
+        for mode in [KeyMode::Scene, KeyMode::Present] {
+            let rep = diff_all(&r, &p, mode, &o, 0);
+            assert_eq!((rep.identical, rep.ref_after_port), (4, 6), "{mode:?}");
+            assert!(rep.summary().contains("port log ended early: 6"));
+            assert_eq!(diff_all(&r, &r, mode, &o, 0).ref_after_port, 0);
+        }
+        let mut m = DemoMerge::new(r.clone().into_iter(), o, 0);
+        m.key = KeyMode::Present;
+        p.iter().for_each(|f| m.feed(f));
+        assert_eq!(m.finish().ref_after_port, 6);
+        let mut m = DemoMerge::new(r.clone().into_iter(), o, 0);
+        m.key = KeyMode::Present;
+        r.iter().for_each(|f| m.feed(f));
+        let rep = m.finish();
+        assert_eq!(rep.ref_after_port, 0);
+        assert!(!rep.summary().contains("ended early"));
+    }
+
+    // Non-same quads grouped by (texture, rect, kind, fields) with frames, quads and present ranges.
+    #[test]
+    fn difference_groups() {
+        let st = "T etama.anm#0 256 256\nS blend=alpha atest=ge4 ztest=always zwrite=0 c=tex*col a=tex*col\nV 0 0 640 480\n";
+        let q = |x: i32, u: f32| {
+            format!(
+                "R {x} 100 {} 116 {u} 0 {} 0.0625 ffffffff\n",
+                x + 16,
+                u + 0.0625
+            )
+        };
+        let frame = |n: i64, body: String| format!("F {n} 2 {n} {n} -1 0 0 2\n{st}{body}");
+        let mut rep = Report::new(0);
+        let o = Opts { playfield: false };
+        for n in 1..=4 {
+            let rt = frame(n, q(100, 0.0) + &q(200, 0.0625));
+            let pt = if n == 3 {
+                rt.clone()
+            } else {
+                frame(n, q(102, 0.0) + &q(300, 0.125))
+            };
+            let (rf, pf) = (parse_str(&rt), parse_str(&pt));
+            let d = diff_frame(&rf[0], &pf[0], &o);
+            rep.add(&format!("{n}"), &rf[0], &pf[0], &d);
+        }
+        assert_eq!(rep.identical, 1);
+        let g = rep.sorted_groups();
+        let keys: Vec<_> = g
+            .iter()
+            .map(|(k, _)| (k.1, k.2, fields_str(k.2, k.3)))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                ([0, 0, 16, 16], QuadKind::Changed, "pos".to_string()),
+                ([16, 0, 32, 16], QuadKind::Missing, "-".to_string()),
+                ([32, 0, 48, 16], QuadKind::Extra, "-".to_string()),
+            ]
+        );
+        for (_, x) in &g {
+            assert_eq!((x.first_present, x.frames, x.quads), (1, 3, 3));
+            assert_eq!(x.ranges_str(), "1-2,4");
+        }
+        assert!(g[0].1.ex_ref.is_some() && g[0].1.ex_port.is_some());
+        assert!(g[1].1.ex_port.is_none() && g[2].1.ex_ref.is_none());
+        let tsv = rep.groups_tsv();
+        assert_eq!(tsv.lines().count(), 4);
+        assert!(tsv.lines().all(|l| l.split('\t').count() == 14));
+    }
+
+    fn menu(name: &str, clr: bool, min: (usize, f64)) {
+        let reference = data(&format!("{name}.drawlog.xz"));
+        let Some(mut ctx) = ctx() else {
+            eprintln!("no TH08_DIR / GPU: {name} skipped");
+            return;
+        };
+        let Ok(r) = open(&[reference]) else {
+            eprintln!("cannot read {name}: skipped");
+            return;
+        };
+        let r: Vec<Frame> = r.collect();
+        if r.is_empty() {
+            eprintln!("{name}: reference unreadable, skipped");
+            return;
+        }
+        menu_start_state(&mut ctx, name).unwrap();
+        let input = std::fs::read_to_string(data(&format!("{name}.input.txt"))).unwrap();
+        let script = th08_core::input::parse_script(&input).unwrap();
+        let mut text = String::new();
+        crate::drawlog::run_menu_script(&mut ctx, &script, clr, |s| text.push_str(&s));
+        let p = parse_str(&text);
+        let rep = diff_all(&r, &p, KeyMode::Scene, &Opts { playfield: false }, 4);
+        eprintln!("{name}:\n{}", rep.summary());
+        assert_eq!(rep.ref_after_port, 0, "{name}: port log ended early");
+        assert!(
+            rep.identical >= min.0 && rep.match_pct() >= min.1,
+            "{name} regressed: {} identical frames, {:.2}% same quads (min {min:?})",
+            rep.identical,
+            rep.match_pct()
+        );
+    }
+
+    #[test]
+    fn menu_base() {
+        menu("menu_base", false, MENU_BASE);
+    }
+
+    #[test]
+    fn menu_clr() {
+        menu("menu_clr", true, MENU_CLR);
+    }
+
+    #[test]
+    fn menu_mopup1() {
+        menu("menu_mopup1", false, MENU_MOPUP1);
+    }
+
+    #[test]
+    fn demos() {
+        for n in 0..4u8 {
+            let chunk = data(&format!("demos/demo{n}_00000-01500.drawlog.xz"));
+            if !chunk.exists() {
+                eprintln!("demo {n}: reference chunk missing, skipped");
+                continue;
+            }
+            let Some(mut ctx) = ctx() else {
+                eprintln!("no TH08_DIR / GPU: demos skipped");
+                return;
+            };
+            let mut m = DemoMerge::new(open(&[chunk]).unwrap(), Opts { playfield: true }, 4);
+            m.range = Some((0, 1500));
+            run_demo(&mut ctx, n, 1500, |s| {
+                for f in parse_str(&s) {
+                    m.feed(&f);
+                }
+            })
+            .unwrap();
+            let rep = m.finish();
+            eprintln!("demo {n}:\n{}", rep.summary());
+            assert_eq!(rep.ref_after_port, 0, "demo {n}: port log ended early");
+            assert!(
+                rep.match_pct() >= DEMO[n as usize],
+                "demo {n} regressed: {:.2}% same quads (min {})",
+                rep.match_pct(),
+                DEMO[n as usize]
+            );
+        }
+    }
+}

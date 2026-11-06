@@ -1,0 +1,831 @@
+addr,kind,name,signature,confidence,note
+0x0043e660,func,FileSystem_OpenFile,,VERIFIED,load file from archive (or disk if param3!=0); returns decoded buffer
+0x0043e8f0,func,FileSystem_WriteFile,,VERIFIED,write buffer to disk file
+0x0043e390,func,Edz_DecryptFile,,VERIFIED,checks edz header & type byte; decrypts with table 004c78e0
+0x0043e1d0,func,Crypt_XorBlockReverse,,VERIFIED,fastcall(buf;size;key;step;block;limit) returns new buffer
+0x004740e0,func,Lzss_Decompress,,VERIFIED,fastcall(src;srcsize;dst;dstsize)
+0x004748c0,func,PbgArchive_Open,,VERIFIED,
+0x00474ce0,func,PbgArchive_ReadHeader,,VERIFIED,PBGZ header + file table
+0x00474fa0,func,PbgArchive_ParseTable,,VERIFIED,
+0x00474c70,func,PbgArchive_FindEntry,,VERIFIED,
+0x00474c40,func,PbgArchive_GetFileSize,,VERIFIED,
+0x00474af0,func,PbgArchive_ReadFile,,VERIFIED,
+0x004c78e0,global,g_EdzCryptTable,,VERIFIED,8 x 12 bytes: typechar+16*i+16 key step pad u32 block u32 limit
+0x004c7940,global,g_EdzMagic,,VERIFIED,edz magic stored +0x20 +0x40 +0x60
+0x018d5f68,global,g_LzssDict,,VERIFIED,0x2000 byte dictionary
+0x0045c6b0,func,Bgm_FindTrack,,VERIFIED,basename lookup in thbgm.fmt table; fallback index 0
+0x0045cc30,func,Bgm_LoadFmt,,VERIFIED,loads thbgm.fmt from archive
+0x0045cc70,func,Bgm_StreamStart,,VERIFIED,
+0x0045ce70,func,Bgm_Preload,,VERIFIED,reads +0x14 bytes of track into memory
+0x0045d0f0,func,Bgm_LoadPreloaded,,VERIFIED,
+0x004733e0,func,WaveStream_Rewind,,VERIFIED,handles loop seek (loop_start/loop_end)
+0x00473530,func,WaveStream_Read,,VERIFIED,
+0x00447d56,func,Music_Play,,VERIFIED,ext->wav if music mode 1
+0x004477b1,func,Config_Load,,VERIFIED,th08.cfg + thbgm.dat ZWAV check
+0x018bdc7c,global,g_BgmFileBaseOffset,,VERIFIED,never written (0) -> thbgm.dat used
+0x00465860,func,Anm_Preload,,VERIFIED,load .anm into slot (<25); count entries; alloc tables
+0x00465800,func,Anm_Load,,VERIFIED,preload + load all entries synchronously
+0x00465a40,func,Anm_LoadAndWait,,VERIFIED,preload then wait for loader thread
+0x00465ba0,func,Anm_PostloadStep,,VERIFIED,loads one entry per call
+0x00465ac0,func,Anm_PreloadEntryImage,,VERIFIED,non-THTX entries: read image from disk
+0x00465cc0,func,Anm_LoadEntryTexture,,VERIFIED,create texture + sprites + script ptrs
+0x004655e0,func,Anm_CreateTextureFromThtx,,VERIFIED,
+0x00465570,func,Anm_CreateTextureFromImage,,VERIFIED,D3DX from memory with colorkey
+0x004657c0,func,Anm_CreateBlankTexture,,VERIFIED,'@' entries
+0x00465510,func,Anm_RemapFormat,,VERIFIED,16-bit texture mode remap
+0x004661b0,func,Anm_StoreSprite,,VERIFIED,
+0x0045e430,func,AnmVm_SetSprite,,VERIFIED,
+0x0045ea00,func,AnmVm_Run,,VERIFIED,ANM script interpreter; opcodes -1..0x58
+0x004b8480,global,g_AnmFormatToD3D,,VERIFIED,
+0x004b8498,global,g_AnmFormatBpp,,VERIFIED,
+0x004418c0,func,WinMain,,VERIFIED,
+0x00441e70,func,Frame_Run,,VERIFIED,60Hz deadline; calc chain; draw chain w/ frameskip; present
+0x00442190,func,Timer_Now,,VERIFIED,QPC seconds or timeGetTime
+0x00442060,func,Frame_Present,,VERIFIED,present + snapshot
+0x00442240,func,Window_Create,,VERIFIED,class BASE 640x480
+0x004424c0,func,Window_InitD3D,,VERIFIED,CreateDevice; camera fov pi/6 near100 far10000
+0x0043c880,func,FuncChain_AddCalc,,VERIFIED,
+0x0043c960,func,FuncChain_AddDraw,,VERIFIED,
+0x0043ca50,func,FuncChain_RunCalc,,VERIFIED,
+0x0043cb60,func,FuncChain_RunDraw,,VERIFIED,
+0x0043ce60,func,FuncChain_NewNode,,VERIFIED,
+0x00445ea7,func,Supervisor_Register,,VERIFIED,
+0x00445453,func,Supervisor_Calc,,VERIFIED,scene switching
+0x00402780,func,AsciiManager_Register,,INFERRED,
+0x00402830,func,AsciiManager_Load,,VERIFIED,ascii.anm capture.anm
+0x00409b20,func,Stage_Register,,INFERRED,
+0x00409850,func,Stage_Load,,VERIFIED,stgNbg.anm + stageN.std
+0x00417f60,func,Gui_Register,,INFERRED,dialogue/face
+0x00414590,func,Gui_LoadFaces,,VERIFIED,
+0x00428620,func,EffectManager_Register,,INFERRED,
+0x004296a0,func,Ending_Register,,INFERRED,
+0x0042c590,func,EnemyManager_Register,,INFERRED,
+0x0042ebf0,func,EnemyManager_Load,,VERIFIED,enemy.anm stgNenm ecldata
+0x004311a0,func,BulletManager_Register,,INFERRED,
+0x00433070,func,BulletManager_Load,,VERIFIED,etama.anm
+0x00437ad0,func,Hud_Register,,INFERRED,FRScreenImplInf
+0x004390ee,func,Hud_Load,,VERIFIED,front times stgNtxt loading anm
+0x0043aa5c,func,GameManager_Register,,INFERRED,
+0x0043abd7,func,GameManager_StageStart,,INFERRED,starts std bgm slots
+0x00449254,func,MusicRoom_Register,,INFERRED,
+0x0044c230,func,Player_Register,,INFERRED,
+0x00451f90,func,Replay_Register,,INFERRED,
+0x004582a0,func,Result_Register,,INFERRED,
+0x0045b8b0,func,ScreenEffect_Register,,INFERRED,
+0x0047146d,func,MainMenu_Register,,INFERRED,
+0x00432830,func,Bullet_WallBounce,,INFERRED,tests x vs 0/384 y vs 0/448
+0x004065f0,func,Timer_Set,,VERIFIED,cur=v sub=0 prev=-999
+0x00406610,func,Timer_SetImpl,,VERIFIED,
+0x004065c0,func,Timer_Reset,,VERIFIED,
+0x0040d3b0,func,Timer_Get,,VERIFIED,returns current (int)
+0x00406640,func,Timer_Tick,,VERIFIED,
+0x00406660,func,Timer_TickImpl,,VERIFIED,prev=cur; Supervisor_AdvanceTimer
+0x00447421,func,Supervisor_AdvanceTimer,,VERIFIED,speed>0.99: cur++ else sub+=speed carry
+0x00447295,func,Timer_Add,,VERIFIED,
+0x0044735b,func,Timer_Sub,,VERIFIED,
+0x00418110,func,Timer_Decrement,,VERIFIED,Timer_Sub(1)
+0x0040b8c0,func,Timer_GetF,,VERIFIED,cur+sub
+0x00406940,func,Matrix_Identity,,VERIFIED,
+0x00404720,func,Vec3_Set,,VERIFIED,
+0x004090d0,func,Vec3_Sub,,VERIFIED,
+0x0040b4c0,func,Vec3_Length,,VERIFIED,
+0x0043edb0,func,Angle_AddNormalize,,VERIFIED,(a+d) wrapped into [-pi,pi] max 17 iters each way
+0x0043ecc0,func,Rng_Next16,,VERIFIED,
+0x0043ed20,func,Rng_Next32,,VERIFIED,
+0x0043ed50,func,Rng_NextFloat,,VERIFIED,u32/2^32
+0x00406ef0,func,Rng_Range,,VERIFIED,
+0x0040d390,func,Rng_FloatRange,,VERIFIED,
+0x0164d520,global,g_Rng,,VERIFIED,
+0x017ce758,global,g_Supervisor,,VERIFIED,
+0x017ce8e0,global,g_GameSpeed,,VERIFIED,Supervisor+0x188
+0x018bdc90,global,g_AnmManager,,VERIFIED,
+0x004a3e70,func,crt_ftol,,VERIFIED,truncation
+0x0041f090,func,Math_Fmod,,VERIFIED,
+0x00409060,func,Math_Sin,,VERIFIED,
+0x00408d40,func,Math_Cos,,VERIFIED,
+0x00462250,func,Math_Tan,,VERIFIED,
+0x00462210,func,Math_Acos,,VERIFIED,
+0x00462230,func,Math_Atan,,VERIFIED,
+0x0045e650,func,AnmVm_GetFloatArg,,VERIFIED,
+0x0045e720,func,AnmVm_GetIntArg,,VERIFIED,
+0x0045e810,func,AnmVm_FloatVarRef,,VERIFIED,
+0x0045e8a0,func,AnmVm_IntVarRef,,VERIFIED,
+0x004068e0,func,AnmVm_Init,,VERIFIED,
+0x0045e580,func,AnmFile_StartScript,,VERIFIED,init vm + run once
+0x0040b910,func,AnmManager_SetScript,,VERIFIED,(vm, script index)
+0x00462360,func,AnmManager_SetScriptRange,,VERIFIED,
+0x00462310,func,AnmManager_RunRange,,VERIFIED,
+0x00462270,func,AnmManager_InterruptRange,,VERIFIED,
+0x00407120,func,AnmVm_Interrupt,,VERIFIED,vm+0x1fe = id
+0x0045e960,func,AnmManager_DrawByMode,,VERIFIED,switch vm+0x200
+0x00462ff0,func,AnmManager_Draw2DSnap,,VERIFIED,mode 0
+0x00463800,func,AnmManager_Draw2D,,VERIFIED,mode 1
+0x00463210,func,AnmManager_Draw2DRot,,VERIFIED,mode 2
+0x00463470,func,AnmManager_Draw2DRotNoSnap,,VERIFIED,mode 3
+0x00463cf0,func,AnmManager_DrawBillboard,,VERIFIED,mode 4
+0x00464070,func,AnmManager_Draw3DQuad,,VERIFIED,mode 5
+0x004639e0,func,AnmManager_ProjectBillboard,,VERIFIED,
+0x00463d60,func,AnmManager_Project3DQuad,,VERIFIED,
+0x004628b0,func,AnmManager_EmitQuad,,VERIFIED,
+0x00462f10,func,AnmManager_PushQuad,,VERIFIED,
+0x00462e40,func,AnmManager_Flush,,VERIFIED,
+0x004623c0,func,AnmManager_SetRenderState,,VERIFIED,
+0x00462790,func,AnmManager_SetRenderState2D,,VERIFIED,
+0x004631d0,func,Rotate2D,,VERIFIED,
+0x00465070,func,AnmManager_Ctor,,VERIFIED,
+0x00465250,func,AnmManager_InitUnitQuad,,VERIFIED,corners +-128
+0x0040b5a0,func,Camera_Set2D,,VERIFIED,
+0x0040b6d0,func,Stage_SetCamera,,VERIFIED,
+0x004e4030,global,g_Stage,,VERIFIED,stage background object (0x6600 bytes)
+0x00409ce0,func,Stage_LoadStd,,VERIFIED,
+0x00407400,func,Stage_Calc,,VERIFIED,std script + camera + fog + objects
+0x00409200,func,Stage_DrawLow,,VERIFIED,draw prio 6: clear/fog/layers 0-1
+0x00409640,func,Stage_DrawHigh,,VERIFIED,draw prio 7: layers 2-3
+0x0040a1b0,func,Stage_DrawLayer,,VERIFIED,
+0x00409f40,func,Stage_UpdateObjects,,VERIFIED,
+0x00408d60,func,Stage_InterpCameraVec,,VERIFIED,EDX=slot
+0x00408fc0,func,Hermite,,VERIFIED,
+0x00409120,func,Vec3_Scale,,VERIFIED,
+0x00409080,func,Vec3_Add,,VERIFIED,
+0x0040b500,func,Vec3_LengthSq,,VERIFIED,
+0x0040b540,func,Vec3_Dot,,VERIFIED,EDX=other
+0x0040b7f0,func,Vec3_Cross,,VERIFIED,
+0x0040b470,func,Vec3_ScaleInv,,VERIFIED,
+0x00464470,func,AnmManager_Draw3DWorld,,VERIFIED,world matrix + texture matrix + unit quad VB
+0x00464dd0,func,AnmManager_DrawCustomQuad,,VERIFIED,4 given XYZRHW vertices
+0x0040baf0,func,AnmManager_DrawRotFlush,,VERIFIED,
+0x004069f0,func,AnmFile_SetScript,,VERIFIED,
+0x00426d10,func,EffectManager_ShiftKind51,,VERIFIED,
+0x004481df,func,Supervisor_FogOn,,VERIFIED,
+0x00448229,func,Supervisor_FogOff,,VERIFIED,
+0x00448270,func,Supervisor_SetRenderState,,VERIFIED,
+0x004184b0,func,Ecl_Run,,INFERRED,ECL interpreter (op 0x92 sets stage section request)
+0x0041f420,func,Ecl_GetIntArg,int __fastcall Ecl_GetIntArg(int e; int v),VERIFIED,int var lookup (ECX enemy EDX value)
+0x0041fe10,func,Ecl_IntVarRef,int * __fastcall Ecl_IntVarRef(int e; int * p; ushort mask; int idx),VERIFIED,
+0x00420120,func,Ecl_GetFloatArg,,VERIFIED,
+0x00420950,func,Ecl_FloatVarRef,float * __fastcall Ecl_FloatVarRef(int e; float * p; ushort mask; int idx),VERIFIED,
+0x00418330,func,Ecl_LoadFile,,VERIFIED,
+0x004eccb8,global,g_EclFile,,VERIFIED,
+0x00423390,func,EclNative_0,,VERIFIED,op136/137 table 0x4c6cb0 index 0
+0x004233d0,func,EclNative_1,,VERIFIED,op136/137 table 0x4c6cb0 index 1
+0x00423400,func,EclNative_2,,VERIFIED,op136/137 table 0x4c6cb0 index 2
+0x00423530,func,EclNative_3,,VERIFIED,op136/137 table 0x4c6cb0 index 3
+0x00423a60,func,EclNative_4,,VERIFIED,op136/137 table 0x4c6cb0 index 4
+0x00424130,func,EclNative_5,,VERIFIED,op136/137 table 0x4c6cb0 index 5
+0x00424170,func,EclNative_6,,VERIFIED,op136/137 table 0x4c6cb0 index 6
+0x004241e0,func,EclNative_7,,VERIFIED,op136/137 table 0x4c6cb0 index 7
+0x004244f0,func,EclNative_8,,VERIFIED,op136/137 table 0x4c6cb0 index 8
+0x00424730,func,EclNative_9,,VERIFIED,op136/137 table 0x4c6cb0 index 9
+0x004246e0,func,EclNative_10,,VERIFIED,op136/137 table 0x4c6cb0 index 10
+0x00424820,func,EclNative_11,,VERIFIED,op136/137 table 0x4c6cb0 index 11
+0x00424a20,func,EclNative_12,,VERIFIED,op136/137 table 0x4c6cb0 index 12
+0x00424e00,func,EclNative_13,,VERIFIED,op136/137 table 0x4c6cb0 index 13
+0x00424c40,func,EclNative_14,,VERIFIED,op136/137 table 0x4c6cb0 index 14
+0x00424e20,func,EclNative_15,,VERIFIED,op136/137 table 0x4c6cb0 index 15
+0x00424e50,func,EclNative_16,,VERIFIED,op136/137 table 0x4c6cb0 index 16
+0x00424f60,func,EclNative_17,,VERIFIED,op136/137 table 0x4c6cb0 index 17
+0x00424f90,func,EclNative_18,,VERIFIED,op136/137 table 0x4c6cb0 index 18
+0x00424fc0,func,EclNative_19,,VERIFIED,op136/137 table 0x4c6cb0 index 19; var 10000 := i16 0x164D0B8 spell-practice card id (07 §12)
+0x00423db0,func,EclNative_20,,VERIFIED,op136/137 table 0x4c6cb0 index 20
+0x00423e20,func,EclNative_21,,VERIFIED,op136/137 table 0x4c6cb0 index 21
+0x00424ff0,func,EclNative_22,,VERIFIED,op136/137 table 0x4c6cb0 index 22
+0x00425020,func,EclNative_23,,VERIFIED,op136/137 table 0x4c6cb0 index 23
+0x00425040,func,EclNative_24,,VERIFIED,op136/137 table 0x4c6cb0 index 24
+0x00424910,func,EclNative_25,,VERIFIED,op136/137 table 0x4c6cb0 index 25
+0x00425070,func,EclNative_26,,VERIFIED,op136/137 table 0x4c6cb0 index 26
+0x004250d0,func,EclNative_27,,VERIFIED,op136/137 table 0x4c6cb0 index 27
+0x004251b0,func,EclNative_28,,VERIFIED,op136/137 table 0x4c6cb0 index 28
+0x00425290,func,EclNative_29,,VERIFIED,op136/137 table 0x4c6cb0 index 29
+0x00424a00,func,EclNative_30,,VERIFIED,op136/137 table 0x4c6cb0 index 30
+0x00425390,func,EclNative_31,,VERIFIED,op136/137 table 0x4c6cb0 index 31
+0x00421120,func,EclInterp_Linear,,INFERRED,op36 fn table 0x4c6c90 idx 0-6
+0x00421180,func,EclInterp_Fn7,,INFERRED,op36 fn idx 7
+0x0042a8a0,func,EclTimeline_Run,,VERIFIED,
+0x0042a4e0,func,EnemyMgr_SpawnFromTimeline,,VERIFIED,
+0x0042a680,func,EnemyMgr_SpawnFromEcl,,VERIFIED,
+0x0042c660,func,EnemyMgr_Calc,,VERIFIED,
+0x00429e00,func,EnemyMgr_Ctor,,VERIFIED,template defaults
+0x00422720,func,Ecl_FireBullets,,VERIFIED,
+0x00430e10,func,BulletMgr_SpawnPattern,,VERIFIED,
+0x0042f5f0,func,BulletMgr_PlaceBullet,,VERIFIED,
+0x00422c40,func,Enemy_UpdateMoveMode,,VERIFIED,
+0x00423150,func,Enemy_AutoFireAndDirAnim,,VERIFIED,
+0x0042deb0,func,Enemy_Move,,VERIFIED,
+0x0042c180,func,Enemy_ClampPos,,VERIFIED,
+0x0042b490,func,Enemy_CheckLifeThresholds,,VERIFIED,
+0x0042b930,func,Enemy_CheckTimeout,,VERIFIED,
+0x0042bea0,func,Enemy_DropItems,,VERIFIED,
+0x0042bcf0,func,Enemy_Free,,VERIFIED,
+0x0042adb0,func,Enemy_KillChildren,,VERIFIED,
+0x00421bd0,func,Ecl_CallSub,,VERIFIED,
+0x00421cb0,func,Ecl_Return,,VERIFIED,
+0x004215f0,func,Ecl_CompareJump,,VERIFIED,
+0x00418450,func,Ecl_SetSub,,VERIFIED,
+0x0040c7b0,func,Math_Atan2,,VERIFIED,(y;x)
+0x004286e0,func,Vec3_FromPolar,,INFERRED,
+0x00415c80,func,Enemy_ResetRankParams,,VERIFIED,
+0x00f54e90,global,g_BulletManager,,VERIFIED,templates 21x0xD44; bullets +0x1A880; lasers +0x660938
+0x0042f360,func,BulletMgr_Ctor,,VERIFIED,zero + cursor + sentinel state 6
+0x00431240,func,BulletMgr_Calc,,VERIFIED,items calc; bullets; lasers
+0x00432b50,func,BulletMgr_Draw,,INFERRED,
+0x0042ffc0,func,Bullet_ApplyExCmds,,VERIFIED,
+0x00432170,func,Bullet_Free,,VERIFIED,
+0x004321b0,func,BulletMgr_ClearDrawLists,,VERIFIED,
+0x00432210,func,Bullet_ExSpeedup,,VERIFIED,ex 0x1
+0x004322b0,func,Bullet_ExAccel,,VERIFIED,ex 0x10
+0x00432390,func,Bullet_ExAngular,,VERIFIED,ex 0x20
+0x00432460,func,Bullet_ExRedirectRel,,VERIFIED,ex 0x40
+0x004325a0,func,Bullet_ExRedirectAbs,,VERIFIED,ex 0x100
+0x004326e0,func,Bullet_ExRedirectAim,,VERIFIED,ex 0x80
+0x004329f0,func,Bullet_ExWrapX,,VERIFIED,ex 0x400000
+0x00432aa0,func,Bullet_ExWrapY,,VERIFIED,ex 0x800000
+0x0042fe70,func,AnmVm_Copy,,VERIFIED,ECX=dst EDX=src 0x2A4
+0x0042fea0,func,Bullet_SetEffectSprite,,VERIFIED,
+0x0042a410,func,BulletDesc_Init,,VERIFIED,zero; +0x204=-1
+0x004399ac,func,GameMgr_IsOnScreen,,VERIFIED,(x;y;w;h) box vs 384x448
+0x0040e390,func,Timer_LessEq,,VERIFIED,cur<=v
+0x0040b8e0,func,Timer_GreaterEq,,VERIFIED,cur>=v
+0x004066a0,func,Timer_Less,,VERIFIED,cur<v
+0x00410a70,func,Vec3_AddInPlace,,VERIFIED,
+0x0040c7d0,func,Vec3_DivScalar,,VERIFIED,
+0x0040ec00,func,AnmVm_SetRotationZ,,VERIFIED,
+0x0043ee30,func,Vec2_Rotate,,VERIFIED,ECX=out EDX=in
+0x00440500,func,ItemMgr_Calc,,VERIFIED,
+0x004400a0,func,ItemMgr_Spawn,,INFERRED,(pos;type;flag)
+0x01653648,global,g_ItemManager,,INFERRED,
+0x017d5ef8,global,g_Player,,VERIFIED,
+0x0160f508,global,g_GameManager,,VERIFIED,
+0x018b8a68,global,g_SoundManager,,INFERRED,
+0x0045d550,func,Sound_Play,,VERIFIED,(id;0) id table 0x4c8040
+0x0045d660,func,Sound_PlayAt,,INFERRED,(id;x)
+0x0044a470,func,Player_GrazeTest,,VERIFIED,0 none 1 graze 2 bomb area
+0x0044a230,func,Player_HitTest,,VERIFIED,
+0x0044a360,func,Player_HitTestNoBomb,,VERIFIED,
+0x00449ff0,func,Player_InBombArea,,VERIFIED,
+0x0044a6a0,func,Player_LaserTest,,VERIFIED,
+0x0044a5a0,func,Player_ItemCollectTest,,VERIFIED,
+0x0044c1b0,func,Player_AngleFrom,,VERIFIED,
+0x0044a930,func,Player_OnGraze,,VERIFIED,
+0x0044e160,func,GameMgr_ScrambleDecoys,,VERIFIED,RNG 5 range + 3 float
+0x0043bfc3,func,GameMgr_RankAdd,,VERIFIED,
+0x0043c03f,func,GameMgr_RankSub,,VERIFIED,
+0x0043c0bb,func,GameMgr_GaugeAdd,,VERIFIED,
+0x004181f0,func,GameMgr_AddScore,,VERIFIED,score += n/10
+0x00415c60,func,BulletMgr_CancelAllToItems,,INFERRED,0x430830(1)
+0x0044c390,func,Player_Calc,,VERIFIED,
+0x0044d650,func,Player_Load,,VERIFIED,sht + anm + boxes
+0x0044dd70,func,Sht_Load,,VERIFIED,ECX=&ptr EDX=name
+0x0044aec0,func,Player_Move,,VERIFIED,input/focus/move/boxes/options/gauge
+0x0044c650,func,Player_UpdateBomb,,VERIFIED,
+0x0044ab40,func,Player_Die,,VERIFIED,
+0x0044cbf0,func,Player_DyingUpdate,,VERIFIED,
+0x0044d180,func,Player_RespawnUpdate,,VERIFIED,
+0x0044d2c0,func,Player_UpdateInvuln,,VERIFIED,
+0x0044c5b0,func,Player_UpdateAreas,,VERIFIED,
+0x00451500,func,Player_ShotTimer,,VERIFIED,
+0x00450f60,func,Player_Fire,,VERIFIED,ECX=player EDX=t
+0x0044fb70,func,Player_InitShot,,VERIFIED,
+0x0044fd80,func,Shot_InitDefault,,VERIFIED,
+0x00451150,func,Player_UpdateBullets,,VERIFIED,
+0x00451670,func,Player_DamageAgainst,,VERIFIED,
+0x0040be30,func,Bomb_Start,,VERIFIED,(name;dur;invuln;isLS)
+0x0044df00,func,Player_AddCancelCircle,,VERIFIED,
+0x0044de60,func,Player_AddCancelRect,,VERIFIED,
+0x0044e040,func,Player_AddDamageCircle,,VERIFIED,
+0x0044dfa0,func,Player_AddDamageRect,,VERIFIED,
+0x00406e50,func,GameMgr_UpdateChecksum,,VERIFIED,2x Rng_Range(100000)
+0x00418220,func,GameMgr_AddTime,,VERIFIED,
+0x00439883,func,GameMgr_AddBombs,,VERIFIED,
+0x0043c641,func,GameMgr_AddLives,,VERIFIED,
+0x00441850,func,GameMgr_AddPower,,VERIFIED,
+0x00406fa0,func,GameMgr_SetPower,,VERIFIED,
+0x00406f30,func,GameMgr_SetBombs,,VERIFIED,
+0x00406e20,func,GameMgr_SetLives,,VERIFIED,
+0x00422480,func,GameMgr_GetPower,,VERIFIED,
+0x004398ce,func,GameMgr_GetBombs,,VERIFIED,
+0x0042f2b0,func,GameMgr_GetLives,,VERIFIED,
+0x00439b29,func,GameMgr_Extend,,VERIFIED,
+0x00406cf0,func,GameMgr_GetGauge,,VERIFIED,
+0x0044e140,func,GameMgr_SetGauge,,VERIFIED,
+0x00406d10,func,Gauge_IsHumanMax,,VERIFIED,
+0x00406d40,func,Gauge_IsHuman,,VERIFIED,
+0x00406d70,func,Gauge_IsYoukaiMax,,VERIFIED,
+0x00406da0,func,Gauge_IsYoukai,,VERIFIED,
+0x0042f230,func,GameMgr_IsSoloHuman,,VERIFIED,
+0x0042f270,func,GameMgr_IsSoloYoukai,,VERIFIED,
+0x00430830,func,BulletMgr_CancelAll,,VERIFIED,
+0x00430aa0,func,BulletMgr_CancelBonus,,VERIFIED,
+0x00430d30,func,BulletMgr_CancelRadius,,VERIFIED,
+0x00430f20,func,LaserMgr_Spawn,,VERIFIED,
+0x00441530,func,ItemMgr_DropAttracted,,VERIFIED,
+0x004413e0,func,ItemMgr_AttractAll,,VERIFIED,
+0x00441450,func,ItemMgr_ConvertPower,,VERIFIED,
+0x0043ed80,func,Rng_Signed,,VERIFIED,u32/2^31-1
+0x0164d0b1,global,g_ShotType,,VERIFIED,0-11
+0x0164d52c,global,g_Input,,VERIFIED,
+0x0164d534,global,g_InputPrev,,INFERRED,
+0x00439710,func,Msg_Load,,VERIFIED,loads msg file; offsets->ptrs
+0x00439810,func,Hud_StartMsg,,VERIFIED,
+0x0043396d,func,Msg_Start,,VERIFIED,
+0x00433db3,func,Msg_Run,,VERIFIED,dialogue interpreter
+0x0043542b,func,Msg_Draw,,VERIFIED,
+0x004358bb,func,Msg_IsActive,,VERIFIED,
+0x0043587e,func,Msg_IsBlocking,,VERIFIED,timeline op7
+0x004353ec,func,Msg_DecodeString,,VERIFIED,xor 0x77
+0x004663b0,func,Text_RenderToVm,,VERIFIED,vsprintf + GDI raster into vm sprite
+0x00466310,func,Text_Render,,VERIFIED,
+0x0043f9c8,func,Text_RasterBold,,VERIFIED,CreateFont 2*size-2 w600
+0x0043fce9,func,Text_RasterSmall,,VERIFIED,
+0x004338ca,func,Hud_Calc,,VERIFIED,
+0x00433927,func,Hud_Draw,,VERIFIED,
+0x00418010,func,Gui_Calc,,VERIFIED,
+0x00418030,func,Gui_Draw,,VERIFIED,
+0x00418050,func,Gui_OnRemove,,VERIFIED,
+0x00448081,func,Music_Stop,,VERIFIED,
+0x00447e47,func,Music_PlaySlot,,VERIFIED,
+0x00447f21,func,Music_PlayFile,,VERIFIED,
+0x004480f8,func,Music_Fade,,VERIFIED,
+0x0043d970,func,Input_Poll,,VERIFIED,keyboard VK map
+0x0043d120,func,Input_PollJoystick,,INFERRED,
+0x0042efb0,func,EnemyMgr_KillAll,,VERIFIED,
+0x0043c35f,func,GameMgr_ClockAdvance,,VERIFIED,
+0x00406dd0,func,GameMgr_GetClock,,VERIFIED,stats+0x28
+0x00406df0,func,GameMgr_AddClock,,VERIFIED,
+0x00406c70,func,GameMgr_IsSpellPractice,,VERIFIED,flags bit14
+0x00406c90,func,GameMgr_IsReplay,,VERIFIED,flags bit3
+0x00439829,func,GameMgr_IsClearedA,,VERIFIED,
+0x00439856,func,GameMgr_IsClearedB,,VERIFIED,
+0x0160f428,global,g_Hud,,VERIFIED,
+0x004ea670,global,g_Gui,,VERIFIED,faces/spell bg
+0x0164d528,global,g_InputRawCur,,VERIFIED,
+0x0164d0b4,global,g_GameFlags,,VERIFIED,gm+0x3dbac
+0x0164d2cc,global,g_StageIdx,,VERIFIED,
+0x00410c00,func,Rng_Range16,,VERIFIED,
+0x004143c0,func,Rng_SignedRange,,VERIFIED,
+0x00453be0,func,Rng_SetState,,VERIFIED,
+0x00453c20,func,Rng_GetState,,VERIFIED,
+0x00453c00,func,Rng_ResetCounter,,VERIFIED,
+0x004522a0,func,Replay_FrameHook,,VERIFIED,stores rng state
+0x00452310,func,Replay_RecordCalc,,VERIFIED,
+0x00452550,func,Replay_PlayCalc,,VERIFIED,
+0x00452830,func,Replay_RecordStageStart,,VERIFIED,
+0x00452d60,func,Replay_PlayStageLoad,,VERIFIED,
+0x004531f0,func,Replay_Finish,,VERIFIED,build+encrypt+write rpy; 3 RNG draws
+0x00439bc7,func,GameMgr_Calc,,VERIFIED,
+0x0043aaf4,func,GameMgr_OnRegister,,VERIFIED,starts StageStart thread
+0x0043aa03,func,GameMgr_Draw,,VERIFIED,
+0x0043be2c,func,GameMgr_OnRemove,,VERIFIED,
+0x0043bf6e,func,GameMgr_Unregister,,VERIFIED,
+0x0043c4b3,func,Stage_Advance,,VERIFIED,
+0x0043b984,func,GameMgr_InitDecoys,,VERIFIED,60 rng draws
+0x0043b936,func,GameMgr_InitRank,,VERIFIED,tbl 0x4c7880
+0x0043c686,func,GameMgr_InitPlayfieldRects,,VERIFIED,
+0x00440470,func,GameMgr_UpdateNextExtend,,VERIFIED,
+0x0043bbe1,func,GameMgr_LoadScoreData,,VERIFIED,
+0x00406cd0,func,GameMgr_IsPractice,,VERIFIED,flags bit0
+0x0040bb80,func,GameMgr_IsTampered,,VERIFIED,
+0x0044e260,func,GameMgr_AddDeathCount,,VERIFIED,
+0x0044e2e0,func,GameMgr_AddBombCount,,VERIFIED,
+0x00440e40,func,Item_CollectPoint,,VERIFIED,
+0x004161b0,func,Spell_End,,VERIFIED,capture bonus
+0x004037b0,func,PauseMenu_Update,,VERIFIED,
+0x00404890,func,ContinueMenu_Update,,VERIFIED,
+0x00402200,func,Ascii_Calc,,VERIFIED,runs pause/continue menus
+0x004052b0,func,ContinueMenu_Draw,,INFERRED,
+0x004464c8,func,Supervisor_Init,,VERIFIED,seeds rng with timeGetTime
+0x00467399,func,MainMenu_Calc,,VERIFIED,screen dispatch
+0x004674e0,func,MainMenu_Top,,VERIFIED,
+0x0046837b,func,MainMenu_Option,,VERIFIED,
+0x00469636,func,MainMenu_KeyConfig,,INFERRED,
+0x0046a071,func,MainMenu_Difficulty,,VERIFIED,
+0x0046a625,func,MainMenu_Character,,VERIFIED,
+0x0046adb0,func,MainMenu_PracticeStage,,VERIFIED,
+0x0046b174,func,MainMenu_SpellPracticeChar,,INFERRED,
+0x0046bbc0,func,MainMenu_SpellPracticeCard,,INFERRED,
+0x0046e136,func,MainMenu_Replay,,VERIFIED,
+0x00470a6c,func,MainMenu_OnRegister,,VERIFIED,
+0x00470e10,func,MainMenu_LoaderThread,,VERIFIED,
+0x004694c3,func,Menu_SetScreen,,VERIFIED,
+0x0047030b,func,Menu_CursorUpDown,,VERIFIED,
+0x00470424,func,Menu_CursorLeftRight,,VERIFIED,
+0x00466650,func,Text_RenderCentered,,VERIFIED,
+0x004667c0,func,Anm_LoadSurface,,VERIFIED,jpg/png to fullscreen surface slot
+0x00466ae0,func,Anm_ReleaseSurface,,VERIFIED,
+0x00445fa3,func,Supervisor_OnRegister,,VERIFIED,logo + nowloading
+0x00445bd4,func,Supervisor_DrawLoading,,VERIFIED,
+0x00448790,func,Loading_Begin,,VERIFIED,
+0x0044881a,func,Loading_End,,VERIFIED,
+0x00448972,func,Loading_Wait,,VERIFIED,Press Shot Button
+0x00435900,func,Hud_Update,,VERIFIED,
+0x0043625d,func,Hud_DrawPanel,,VERIFIED,
+0x0043741d,func,Hud_DrawBoss,,VERIFIED,
+0x00438a89,func,Hud_DrawPopups,,VERIFIED,
+0x0043826b,func,Hud_DrawClearPanel,,VERIFIED,
+0x00437ddd,func,Hud_ShowBonus,,VERIFIED,
+0x00437e5d,func,Hud_ShowMessage,,VERIFIED,
+0x00437edc,func,Hud_ShowSpellBonus,,VERIFIED,
+0x00438f58,func,Hud_StageTransition,,VERIFIED,
+0x00402920,func,Ascii_QueueString,,VERIFIED,
+0x00402a30,func,Ascii_Printf,,VERIFIED,
+0x00402b20,func,Ascii_DrawStrings,,VERIFIED,
+0x0045d790,func,Sound_Update,,VERIFIED,per-frame: BGM command queue + flush SE queue (12 slots)
+0x0045d3f0,func,Sound_LoadSE,,VERIFIED,36 wavs tbl 0x4c81b0; 46 SE ids tbl 0x4c8040 {i32 wav,i16 vol,i16 prio}
+0x0045c8c0,func,Sound_LoadWav,,VERIFIED,
+0x00425430,func,Effect_Spawn,,VERIFIED,(type;pos;count;colour) ring 0..511
+0x00425650,func,Effect_SpawnWithParam,,VERIFIED,(type;pos;param(+0x2B0);count;colour)
+0x00425870,func,Effect_SpawnFixed,,VERIFIED,(type;pos;slot 0..;colour) slot 640+n
+0x004259e0,func,Effect_SpawnFixedParam,,VERIFIED,(type;pos;param;slot;?;colour)
+0x00425b70,func,Effect_SpawnHigh,,VERIFIED,(type;pos;count;colour) slots 512..639
+0x00427bf0,func,EffectMgr_Calc,,VERIFIED,
+0x00427f00,func,EffectMgr_Draw,,VERIFIED,prio 12 lists 0/2/4
+0x00428100,func,EffectMgr_DrawOverBullets,,VERIFIED,list 3 (called from BulletMgr_Draw)
+0x004281e0,func,EffectMgr_DrawBackground,,VERIFIED,list 1 (from Stage_DrawHigh; cfg effect level 0x17ce894)
+0x004284b0,func,EffectMgr_OnRegister,,VERIFIED,
+0x00425d70,func,EffInit_Spark,,VERIFIED,types 4-11
+0x00425ea0,func,EffInit_Spark3,,VERIFIED,type 3
+0x00425e60,func,EffUpd_VelAccel,,VERIFIED,
+0x00415d60,func,Gui_ShowPlayerSpellName,,VERIFIED,SE 0xE
+0x00415f00,func,Gui_ShowBossSpellName,,VERIFIED,SE 0xE
+0x0042c420,func,Enemy_ReactPlayerMode,,VERIFIED,SE 0x27/0x28 effects 0x1e/0x1f
+0x004152a0,func,Spell_Start,,VERIFIED,counts CATK attempts
+0x00427450,func,EffDraw_Ring,,VERIFIED,triangle-strip ring from VM params
+0x004272e0,func,EffInit_Ring,,VERIFIED,alloc 0x1c38 vtx buffer
+0x00427990,func,EffUpd_RingSimple,,VERIFIED,
+0x004279d0,func,EffUpd_RingVars,,VERIFIED,
+0x00426b20,func,EffInit_Converge,,VERIFIED,
+0x00426bb0,func,EffUpd_Converge60,,VERIFIED,
+0x00426c90,func,EffUpd_Converge240,,VERIFIED,
+0x004270c0,func,EffInit_Burst,,VERIFIED,
+0x004271a0,func,EffUpd_Burst90,,VERIFIED,
+0x00426c40,func,EffUpd_FollowPlayer,,VERIFIED,
+0x00426e70,func,EffInit_Petal3D,,VERIFIED,
+0x00426d70,func,EffUpd_Petal3D,,VERIFIED,
+0x00415ce0,func,Stage_StartSpellBg,,VERIFIED,stage+0xB24=1
+0x00416ad0,func,Stage_EndSpellBg,,INFERRED,
+0x0040bf00,func,Player_SpawnInvulnRing,,VERIFIED,effect 23 fixed slot 0
+0x00403200,func,Popup_Number,,VERIFIED,720 slots life 60
+0x00403330,func,Popup_NumberBig,,VERIFIED,slots 720..722
+0x00403460,func,Popup_Large,,VERIFIED,128 slots life 90 no motion
+0x00403600,func,Popup_LargeStatic,,VERIFIED,x += count*3.5; starts at age 88
+0x0045b1e0,func,ScreenEffect_DrawRect,,VERIFIED,colour EDX
+0x0040bc60,func,Bomb_DrawTint,,VERIFIED,EDX colour; stage tint ramp 60f
+0x0040c010,func,Bomb_Reimu,,VERIFIED,
+0x0040c820,func,BombDraw_Reimu,,VERIFIED,
+0x0040c910,func,Bomb_ReimuLS,,VERIFIED,
+0x0040d010,func,BombDraw_ReimuLS,,VERIFIED,
+0x0040d100,func,Bomb_Dissolve,,VERIFIED,
+0x0040d310,func,BombDraw_Dissolve,,VERIFIED,
+0x0040d430,func,Bomb_Alice,,VERIFIED,
+0x0040d950,func,BombDraw_TintOnly,,VERIFIED,Alice/Yukari bomb
+0x0040d970,func,Bomb_AliceLS,,VERIFIED,
+0x0040dee0,func,BombDraw_AliceLS,,VERIFIED,
+0x0040e3b0,func,Bomb_Marisa,,VERIFIED,
+0x0040e610,func,BombDraw_Marisa,,VERIFIED,
+0x0040e780,func,Bomb_MarisaLS,,VERIFIED,
+0x0040ee10,func,Bomb_Remilia,,VERIFIED,
+0x0040f550,func,BombDraw_Remilia,,VERIFIED,
+0x0040f570,func,Bomb_RemiliaLS,,VERIFIED,
+0x0040fcb0,func,BombDraw_RemiliaLS,,VERIFIED,
+0x0040fcd0,func,Bomb_Sakuya,,VERIFIED,
+0x00410300,func,BombDraw_Sakuya,,VERIFIED,
+0x004103f0,func,Bomb_SakuyaLS,,VERIFIED,
+0x00410ac0,func,BombDraw_SakuyaLS,,VERIFIED,
+0x00410c40,func,Bomb_Yukari,,VERIFIED,
+0x00410fe0,func,Bomb_YukariLS,,VERIFIED,
+0x004113a0,func,BombDraw_YukariLS,,VERIFIED,
+0x004114e0,func,EffUpd_YukariSquare,,VERIFIED,
+0x00411720,func,EffInit_YukariBoundary,,VERIFIED,
+0x004117b0,func,EffUpd_YukariLSSquare,,VERIFIED,
+0x00411a80,func,EffInit_YukariLSBoundary,,VERIFIED,
+0x00411b10,func,Bomb_Youmu,,VERIFIED,
+0x00412300,func,BombDraw_Youmu,,VERIFIED,
+0x004123d0,func,Bomb_YoumuLS,,VERIFIED,
+0x00412fa0,func,BombDraw_YoumuLS,,VERIFIED,
+0x00413070,func,EffUpd_Slash,,VERIFIED,
+0x00413140,func,Bomb_Yuyuko,,VERIFIED,
+0x00413890,func,BombDraw_Yuyuko,,VERIFIED,
+0x00413990,func,Bomb_YuyukoLS,,VERIFIED,
+0x004142c0,func,BombDraw_YuyukoLS,,VERIFIED,
+0x0040e040,func,EffUpd_AliceWave,,VERIFIED,
+0x0040e120,func,EffUpd_AliceEllipseA,,VERIFIED,
+0x0040e200,func,EffUpd_AliceEllipseB,,VERIFIED,
+0x0040e2d0,func,EffUpd_AliceOctagon,,VERIFIED,
+0x00410bb0,func,EffUpd_SakuyaRing,,VERIFIED,
+0x0040ec30,func,AnmVm_InterpPos,,VERIFIED,
+0x0040eda0,func,AnmVm_InterpScale,,VERIFIED,
+0x0040ed50,func,AnmVm_InterpAlpha,,VERIFIED,
+0x0040eca0,func,AnmVm_InterpColour,,VERIFIED,
+0x0044e3a0,func,Option_Yukari,,VERIFIED,
+0x0044e770,func,Option_YukariFollow,,VERIFIED,
+0x0044e8d0,func,Option_YukariChase,,VERIFIED,
+0x0044e9e0,func,Option_Draw,,VERIFIED,
+0x0044ea40,func,Option_Alice,,VERIFIED,
+0x0044ee70,func,Option_RemiliaSolo,,VERIFIED,
+0x0044f2d0,func,Option_YoumuHalf,,VERIFIED,
+0x0044f5e0,func,Option_YoumuSolo,,VERIFIED,
+0x0044fe20,func,ShotInit_Laser,,VERIFIED,
+0x004505d0,func,ShotUpd_Laser4,,VERIFIED,unused
+0x00450840,func,ShotUpd_AliceLaser,,VERIFIED,
+0x00450ad0,func,ShotDraw_Trail,,VERIFIED,
+0x004512f0,func,Player_DrawBullets,,VERIFIED,
+0x00451400,func,Player_DrawBulletsHit,,VERIFIED,
+0x0044cba0,func,Spell_OnPlayerBomb,,VERIFIED,clear capture bit2, bonus 0, bit7=active
+0x0042c290,func,Enemy_ContactTest,,VERIFIED,graze box/0.7 every 6f (bit7), hit box/1.5, -10 life
+0x0042c3b0,func,EnemyMgr_TimeRank,,VERIFIED,rank +100 every 2400-240*lives frames
+0x0042e140,func,EnemyMgr_DrawLayers,,VERIFIED,EDX first layer, arg end
+0x00420f40,func,Ecl_OpMoveTo,,VERIFIED,op64
+0x00420d10,func,Ecl_OpMoveDir,,VERIFIED,op66
+0x00422020,func,Ecl_OpMoveRand,,VERIFIED,op67
+0x004224a0,func,Ecl_OpMoveRand2,,VERIFIED,op178
+0x004222b0,func,Ecl_SetMode2Polar,,VERIFIED,
+0x00432f20,func,Bullet_Draw,,VERIFIED,
+0x004415a0,func,ItemMgr_Draw,,VERIFIED,
+0x0045a5e0,func,ScoreDat_Load,,VERIFIED,decrypt+xor+lzss score.dat; returns buffer or 0
+0x00453d0d,func,ScoreDat_Save,,VERIFIED,this=Result; 2 RNG draws
+0x0045a500,func,ScoreList_Insert,,VERIFIED,sorted insert returns rank
+0x0045a950,func,ScoreDat_GetHiscore,,VERIFIED,max(top,100000)
+0x0045aac0,func,ScoreDat_GetCATK,,VERIFIED,
+0x0045ab70,func,ScoreDat_GetLSNM,,VERIFIED,
+0x0045ac00,func,ScoreDat_GetFLSP,,VERIFIED,
+0x0045ac90,func,ScoreDat_GetCLRD,,VERIFIED,
+0x0045ae00,func,ScoreDat_GetPSCR,,VERIFIED,
+0x0045af30,func,ScoreDat_GetPLST,,VERIFIED,
+0x004144d0,func,Spell_DifficultyOf,,VERIFIED,5 for last words
+0x00414540,func,Spell_IsLastSpell,,VERIFIED,table 0x4C6B90 (43)
+0x0046cbbb,func,LastWord_ComputeUnlocks,,VERIFIED,FLSP slots
+0x00451d90,func,Replay_Load,,VERIFIED,
+0x004531a0,func,Replay_AppendEnd,,VERIFIED,terminator; end=p+6
+0x00452490,func,Replay_FastForward,,VERIFIED,returns 6 (restart chain)
+0x004526c0,func,Replay_PlayCalcDebug,,VERIFIED,6-byte frames
+0x00453080,func,Replay_OnRemove,,INFERRED,
+0x004584b0,func,Result_Calc,,VERIFIED,state switch
+0x0045621e,func,Result_NameEntry,,VERIFIED,state 9
+0x0045696f,func,Result_SaveReplay,,VERIFIED,states 10-14
+0x00459fd2,func,Result_OnRemove,,VERIFIED,saves score.dat
+0x0045964d,func,Result_OnRegister,,VERIFIED,default table + load
+0x004550fc,func,Result_CheatUnlock,,VERIFIED,difficulty page + hidden code
+0x00429980,func,Ending_Init,,VERIFIED,selects end file; CLRD ending bits
+0x0044858d,func,ExeCheck,,VERIFIED,th08_%.4x%c.ver
+0x004482a1,func,Supervisor_UpdateRunTime,,VERIFIED,
+0x00448418,func,Supervisor_UpdatePlayTime,,VERIFIED,
+0x0046ef8d,func,MainMenu_ReplayDraw,,VERIFIED,
+0x0043c15f,func,Clear_TeamFinalB,,VERIFIED,no-cont 0x4000 E-L; t>=4 true
+0x0043c23b,func,Clear_TeamFinalA,,VERIFIED,any 0x8000 E-L; t>=4 true
+0x0043c1e9,func,Clear_ExtraUnlocked,,VERIFIED,flags bit15
+0x0043c2c5,func,Clear_AnyFinalA,,VERIFIED,flags bit16
+0x00447d04,func,Clear_AllTeamsFinalB,,VERIFIED,flags bit17
+0x00453c40,func,Supervisor_NoRecordFlag,,VERIFIED,+0x1A4 bit3
+0x004295e0,func,Ending_LoadScript,,VERIFIED,
+0x004297b0,func,Ending_Ctor,,VERIFIED,
+0x00429860,func,Ending_Calc,,VERIFIED,up to 9x with Ctrl when skip allowed
+0x004298f0,func,Ending_Draw,,VERIFIED,
+0x00429d40,func,Ending_OnRemove,,VERIFIED,scene 6
+0x00428b80,func,Ending_RunScript,,VERIFIED,.end interpreter
+0x00428890,func,Ending_ReadInt,,VERIFIED,atol + skip NULs
+0x00428910,func,Ending_DrawFade,,VERIFIED,
+0x0045b1e0,func,Screen_FillRect,,VERIFIED,untextured quad
+0x00449331,func,MusicRoom_Ctor,,VERIFIED,
+0x00449399,func,MusicRoom_Calc,,VERIFIED,
+0x00449487,func,MusicRoom_Draw,,VERIFIED,
+0x0044970f,func,MusicRoom_Init,,VERIFIED,parses musiccmt.txt
+0x00448a65,func,MusicRoom_StateIntro,,VERIFIED,
+0x00448b16,func,MusicRoom_StateInput,,VERIFIED,
+0x00449c0a,func,MusicRoom_OnRemove,,VERIFIED,
+0x004550b7,func,Result_SetState,,VERIFIED,
+0x00454cb2,func,Result_TopMenu,,VERIFIED,
+0x00454298,func,Result_DumpScoreTxt,,VERIFIED,score.txt
+0x004577e2,func,Result_EndBanner,,VERIFIED,states 15/16
+0x004578aa,func,Result_PlayStats,,VERIFIED,
+0x004586b4,func,Result_Draw,,VERIFIED,
+0x00454c59,func,Result_InsertEntry,,VERIFIED,
+0x00456938,func,Date_Format,,VERIFIED,%m/%d
+0x00471181,func,Info_Show,,VERIFIED,blocking unlock notice
+0x0046fd5f,func,Card_IsSelectable,,VERIFIED,attempted or FLSP
+0x0046d7f9,func,SpellPractice_DrawInfo,,VERIFIED,
+0x00427970,func,EffInit_RingOverBullets,,VERIFIED,ring init + draw above bullets
+0x004649a0,func,Anm_RingSetUV_Alt,,VERIFIED,u along strip / v across (only used by EffInit_Ring before first rebuild)
+0x00464b00,func,Anm_RingSetUV,,VERIFIED,v along strip (v1->v0) / u across (outer u0 inner u1) + uv_off; colour
+0x00464c60,func,Anm_DrawRingStrip,,VERIFIED,DrawPrimitiveUP TRIANGLESTRIP fvf 0x144 stride 0x1C
+0x00426280,func,EffInit_Particle51,,VERIFIED,9 RNG draws around stage camera
+0x004264f0,func,EffUpd_Particle51,,VERIFIED,view-cone cull 0.94; boss pull; stage tint into colour2
+0x00426720,func,EffInit_Particle63,,VERIFIED,9 RNG draws
+0x00426990,func,EffUpd_Particle63,,VERIFIED,
+0x00425fe0,func,EffInit_Orbit13,,VERIFIED,layer 2; axis/radius zero
+0x00426030,func,EffUpd_Orbit13,,VERIFIED,quaternion orbit about axis; fade when +0x352
+0x0042e010,func,Enemy_UpdateOrbitEffects,,VERIFIED,op 128 effects: centre/radius+0.3/angle+0.0314
+0x0042a820,func,Enemy_ReleaseOrbitEffects,,VERIFIED,set fade request on op 128 effects
+0x004235a0,func,Stage_SpellMaskCallback,,VERIFIED,natives 3/6/20: black square frame + mirrored spell bg VMs
+0x004253e0,func,EffectMgr_GetFixed,,VERIFIED,returns fixed slot k effect
+0x00425fa0,func,Vec3_Negate,,VERIFIED,
+0x00450ee0,func,PlayerBullet_HitSpark8,,VERIFIED,hit filter: type 5 every 8th call (counter +0xE2A94)
+0x00415d10,func,Spell_ShowNameOnly,,VERIFIED,native 22: flag bit 10 name banner only
+0x00416160,func,Spell_HideName,,VERIFIED,native 23
+0x0041f0e0,func,Spell_SetBonusFrozen,,VERIFIED,op 184: flag bit 11
+0x0041f0b0,func,Spell_SetFlag6,,VERIFIED,op 164
+0x00416b10,func,Spell_AddBonus,,VERIFIED,+8000 per time orb unless bit 11
+0x00416b90,func,Spell_Calc,,VERIFIED,
+0x004178c0,func,Spell_Draw,,VERIFIED,
+0x00405420,func,Ascii_DrawPopups,,VERIFIED,draw prio 14 (via 0x402430); small+large popups; zeroes shake offset at end
+0x00402430,func,Ascii_DrawPopupsThunk,,VERIFIED,
+0x00450c50,func,PlayerBullet_HitExplosion,,VERIFIED,hit filter: explosion; type 5 every 6 frames
+0x00428310,func,EffBg_ScreenPullCb,,VERIFIED,types 51/63: screen-space boss pull + player push
+0x004640e0,func,Anm_ProjectBillboard,,VERIFIED,project + size via camera right (g_Stage+0x63C4); optional callback
+0x00464400,func,Anm_DrawBillboardCb,,VERIFIED,
+0x0041fd40,func,Enemy_ChainChildCount,,VERIFIED,
+0x0041fd20,func,Enemy_HasParent,,VERIFIED,+0x2DA4 (parent ptr) != 0
+0x00428720,func,Effect_ScriptDone,,VERIFIED,VM +0x220 == 0
+0x00421b60,func,GameMgr_GetStatsTime,,VERIFIED,stats +0x3C
+0x00421b80,func,GameMgr_GetTimeThreshold,,VERIFIED,stats +0x40
+0x00440cf0,func,Item_CollectPowerSmall,,VERIFIED,type 0
+0x00441170,func,Item_CollectPowerBig,,VERIFIED,type 2
+0x00441020,func,Item_CollectConverted,,VERIFIED,type 8
+0x004412b0,func,Item_CollectTimeOrb,,VERIFIED,type 7
+0x00402450,func,Ascii_InitVms,,INFERRED,sets anchor 0x1800
+0x00470dd5,func,Supervisor_ResetReplayFlags,,VERIFIED,zeroes +0x338/340/344/348/34C (0x17CEA90 fps flag)
+0x0043ef50,func,Supervisor_GetJoyShotFocus,,VERIFIED,returns cfg+0x26 (Supervisor+0x13E)
+0x00446f53,func,Fps_Update,,VERIFIED,fps meter every 500ms; slowdown accumulators; fps_now 0x17CE8F0; draws %.02ffps
+0x0044748f,func,Screenshot_WriteBmp,,VERIFIED,640x480 24bpp bottom-up BMP from back buffer
+0x0043d760,func,Joy_MapButtonMM,,VERIFIED,winmm dwButtons bit -> input bit (EDX = button index)
+0x0043d6e0,func,Joy_MapButtonDI,,VERIFIED,DIJOYSTATE rgbButtons[n]&0x80 -> input bit
+0x00438a41,func,Supervisor_DebugFlag6,,VERIFIED,cfg+0x38 bit 6 (keeps z-write on in Screen_FillRect)
+0x00445b7a,func,Supervisor_Ctor,,VERIFIED,zero 0xD9 dwords; flags |= 0x40|0x100
+0x004442e0,func,Midi_Open,,INFERRED,string ' midi open %d'
+0x00444620,func,Midi_Play,,INFERRED,string ' midi play'
+0x00444680,func,Midi_Stop,,INFERRED,midiOutReset/close path
+0x004447d0,func,Midi_Fade,,INFERRED,called from Music_Fade
+0x00473cb0,func,Lzss_Compress,,INFERRED,used by Replay_Finish / ScoreDat_Save
+0x00443b60,func,AnmManager_ApplyPendingCaptures,,INFERRED,after Present: surface copies queued at +0x2A252C/+8
+0x0045c190,func,SoundMgr_Init,,INFERRED,DirectSound + SetTimer
+0x00437dc7,func,Hud_MsgSkippable,,VERIFIED,HudImpl+0x22D7C
+0x0043d7e0,func,Input_PollJoystickRaw,,INFERRED,joyGetPosEx for key-config capture
+0x0164d51c,global,g_JoyShotFocusCounter,,VERIFIED,u16
+0x0164d388,global,g_JoyCaps,,VERIFIED,JOYCAPSA (wXmin +0x24)
+0x00418130,func,GameMgr_IsPracticeCard,,VERIFIED,(id) spell practice && card == id
+0x00418180,func,GameMgr_IsPracticeCardInRange,,VERIFIED,(lo;hi) spell practice && lo<=card<=hi
+0x00437f5c,func,Hud_SetBossNamePlate,,VERIFIED,(n) front sprite n rect -> sprite 10
+0x00438046,func,Hud_SetStageNamePlate,,VERIFIED,per stage idx / practice card
+0x0041efc0,func,Enemy_ChainTail,,VERIFIED,last enemy via +8
+0x0041f000,func,Enemy_IsChainRoot,,VERIFIED,parent==0 && +8 != 0
+0x0042b2f0,func,Enemy_ChainUnlink,,VERIFIED,
+0x0040bab0,func,AnmMgr_TintOff,,VERIFIED,AnmMgr+4=0 colour 0x80808080
+0x0040bad0,func,AnmMgr_TintOn,,VERIFIED,(colour)
+0x00409160,func,Stage_RequestTint,,VERIFIED,store or average with pending request
+0x00416130,func,Gui_HidePlayerSpellName,,VERIFIED,text VM int 1 + plate int 2
+0x004664a0,func,Text_RenderToVmRight,,VERIFIED,right-aligned in sprite strip
+0x0044eb70,func,Option_RemiliaTeam,,VERIFIED,
+0x0044f930,func,Option_Yuyuko,,VERIFIED,effect 0x2F 0x80602050
+0x00402600,func,Ascii_SetupGaugeVms,,VERIFIED,gauge VMs G0-G4 scripts 5/7/6/8/4; human/youkai end x from gauge min/max; resend +0x827C
+0x004070b0,func,Ascii_GaugeInterrupt,,VERIFIED,interrupt G0-G3; store id +0x827C
+0x00407140,func,Ascii_GetGaugeInterrupt,,VERIFIED,returns +0x827C
+0x00406fd0,func,Ascii_RunGaugeVms,,VERIFIED,runs gauge VMs + 0x17C4.. VMs each Ascii_Calc
+0x00405e10,func,Ascii_DrawGaugePercent,,VERIFIED,(pos, value/100 %, colour) digit glyphs 136+, '.' 147 '%' 146 '-' 148
+0x0044d420,func,Player_UpdateGaugeFade,,VERIFIED,gauge readout fade 2/3 by player pos (x<160,y>=400)
+0x0044dc60,func,Player_OnRemove,,VERIFIED,full exit: gauge interrupt 99, release sht
+0x0047052d,func,MainMenu_CharacterDraw,,VERIFIED,screen 5 Final-route notice sprite 145-148 at (400,170)
+0x00466bb0,func,Anm_DrawSurface,,VERIFIED,CopyRects surface slot to backbuffer
+0x004066e0,func,AnmVm_IsVisible,,VERIFIED,flags bit 0
+0x004338b0,func,GameMgr_IsFreshStart,,VERIFIED,0x17CE8BC
+0x004338c0,func,GameMgr_IsFullExit,,VERIFIED,0x17CE8C0
+0x0040ebc0,func,Timer_ChangedMultiple,,VERIFIED,cur != prev && cur % n == 0
+0x004066c0,func,Timer_Greater,,VERIFIED,n < cur
+0x0040d3f0,func,Timer_Equals,,VERIFIED,cur == n
+0x0040bc40,func,Player_GetMode,,VERIFIED,returns player byte +5
+0x0043be09,func,Plst_Inc,,VERIFIED,++ if < 999999
+0x00443730,func,Supervisor_ComputeExeSum,,VERIFIED,exe size/sum -> 0x17CEAB0/0x17CEAAC (VRSM)
+0x0043c5e1,func,GameMgr_Ctor,,VERIFIED,zero + demo index 3
+0x0046f429,func,MainMenu_PracticeStageDraw,,VERIFIED,screen 11 PSCR list anchored to VM 141
+0x0046f5cb,func,MainMenu_SpellPracticeCharDraw,,VERIFIED,screen 16 stats table + 4 pies
+0x0046fdc2,func,Menu_DrawPie,ECX=centre xyz; EDX=colour; args ratio; 2R,VERIFIED,64-vertex fan from 12 o clock
+0x00464ec0,func,AnmManager_DrawFan,vm; verts; n,VERIFIED,XYZRHW|DIFFUSE trianglefan untextured
+0x0046ffc0,func,MainMenu_SpellPracticeCardDraw,,VERIFIED,screen 17 rows + info VMs
+0x0046d763,func,Fmt_FullwidthDigits,ECX=n EDX=digits,VERIFIED,static buffer 0x18BDDC8
+0x004398e8,func,Ascii_SetColor,,VERIFIED,+0x8268
+0x0042f2f0,func,Ascii_SetScale,sx; sy,VERIFIED,+0x826C/+0x8270
+0x00407180,func,Ascii_SetAdvance,,VERIFIED,+0x8280 (13)
+0x0045567d,func,Result_CharSelect,,VERIFIED,state 4
+0x00455925,func,Result_Ranking,,VERIFIED,state 5
+0x00455a33,func,Result_CardGroup,,VERIFIED,state 6
+0x00455cb0,func,Result_CardChar,,VERIFIED,state 7
+0x00455f6b,func,Result_CardList,,VERIFIED,state 8
+0x00457e00,func,Result_DrawEndPanel,,VERIFIED,states 0xF/0x10 stats text at VM 71
+0x0045a0f4,func,Result_CursorUpDown,EDX=count,VERIFIED,+0x1C
+0x0045a1f3,func,Result_CursorUpDown2,EDX=count,VERIFIED,+0x30
+0x0045a2f2,func,Result_CursorLeftRight,EDX=count,VERIFIED,+0x1C
+0x00454269,func,Str_AppendF,,VERIFIED,vsprintf at end, returns end ptr
+0x0045a4a0,func,Catk_IsAttempted,rec; shot,VERIFIED,story or practice attempts[shot]
+0x004d5098,global,g_AsciiHighlight,,VERIFIED,ASCII queue highlight flag (asciis glyphs)
+0x00445d3e,func,Supervisor_DrawLoadingVms,,VERIFIED,draw prio 2: 3 nowloading VMs Draw2DRot with pos+pos_offset
+0x004489ca,func,Loading_StartDarken,k,VERIFIED,ScreenEffect type 5+k dur 60 colour 0 prio 1 into 0x17CE750
+0x0044886f,func,Loading_BeginCapture,pos,VERIFIED,Loading_Begin + request post-present capture into surface 8
+0x0045c160,func,ScreenEffect_Release,,VERIFIED,+0x24 = 1; timer = 0
+0x0045b800,func,ScreenEffect_CalcDarken,,VERIFIED,types 5/6 calc
+0x0045bbf0,func,ScreenEffect_DrawFull,,VERIFIED,full-screen rect alpha<<24|p1
+0x0045b020,func,Device_ClearPresentTwice,colour,VERIFIED,device init: clear + present x2
+0x00467180,func,Anm_CaptureToSurface,,VERIFIED,back buffer rect -> new surface slot
+0x00466f20,func,Anm_CaptureToTexture,,VERIFIED,back buffer rect -> ANM slot texture rect
+0x00466000,func,AnmManager_PostloadPending,,VERIFIED,PostloadStep for pending slots; -1 on failure
+0x017ce750,global,g_LoadingDarken,,VERIFIED,loading darken ScreenEffect object
+0x004486ba,func,Supervisor_StartLoader,thiscall(this=Supervisor; proc; arg),VERIFIED,joins old loader then CreateThread(proc) -> +0x284; +0x290 = 1
+0x0044871b,func,Supervisor_JoinLoader,,VERIFIED,+0x28C = 1; wait for the loader thread; close handle
+0x0160f540,global,g_GmLoading,,VERIFIED,GM+0x38: 1 while a stage loads; GameMgr_Calc runs gameplay only when 0 (else +0x3C++ and return 3); 2 = load failed
+0x0160f544,global,g_GmLoadFrames,,VERIFIED,GM+0x3C loading-frame counter; StageStart waits for >= 30 (80 in replay) before Loading_Wait
+0x0043b8a8,label,StageStart_Release,,VERIFIED,loader thread clears GM+0x38 (gameplay may start); session sync point
+0x0043b821,label,StageStart_GaugeSetup,,VERIFIED,before Ascii_InitVms/Ascii_SetupGaugeVms on the loader thread; session sync point
+0x004710df,label,MainMenuLoader_Tail,,VERIFIED,after title00.png load: Music_Play, title fade-in, +0x14434 = 0, Loading_End; session sync point
+0x004469ce,label,SupervisorInit_Tail,,VERIFIED,boot loader success tail (clears +0x284..+0x294); session sync point
+0x00441f48,label,FrameRun_PreCalc,,VERIFIED,Frame_Run just before FuncChain_RunCalc
+0x00441f52,label,FrameRun_PostCalc,,VERIFIED,Frame_Run right after FuncChain_RunCalc (Sound_Update follows; that fn is also called from menus)
+0x016535a0,global,g_JoyRawButtons,,VERIFIED,32 button bytes written by Input_PollJoystickRaw (key-config capture)
+0x00f54ce0,global,g_EnemyDropCounter,,VERIFIED,u16 EnemyMgr+0x9DCDC0; item -1 every-third counter; Rng_Range16(3) at EnemyManager_Load
+0x00f54ce2,global,g_EnemyDropTableIdx,,VERIFIED,u16 EnemyMgr+0x9DCDC2; index into 0x4C70D8; Rng_Range16(8) at EnemyManager_Load
+0x0057ad30,global,g_EnemyTemplateOrbAcc,,VERIFIED,enemy template +0x2E10 = orb step (Player_Load); copied to every spawn
+0x0045a3fd,func,Anm_MoveSurface,"void __thiscall Anm_MoveSurface(void *this,int dst,int src)",VERIFIED,release dst; move surfaces+size of src into dst; Result_OnRemove 8<-0
+0x00453cfa,func,Shot_Name,"char * __thiscall Shot_Name(int shot)",VERIFIED,table 0x4C7F4C (13)
+0x0047087f,func,MainMenu_Draw,,VERIFIED,draw prio 3: Anm_DrawSurface(0) then menu VMs + description VM (no batch flush before the copy)
+0x00406a30,func,AnmManager_QueueCapture,,VERIFIED,queue back-buffer rect -> ANM slot texture rect (applied after Present)
+0x00422bb0,func,Ascii_BossMarkerInterrupt,"(slot,label)",VERIFIED,RE-Q25 marker VMs +0x17C4
+0x00422be0,func,Ascii_BossMarkerSetPos,"(slot,vec3*)",VERIFIED,RE-Q25
+0x0042f2d0,func,Ascii_BossMarkerSetMode,"(slot,mode)",VERIFIED,RE-Q25 +0x2254
+0x0043c322,func,GameMgr_IsPracticeReplay,,VERIFIED,replay && info+0x7B
+0x00439007,func,Hud_NightClockShow,,VERIFIED,ECL op 179
+0x004390d6,func,Hud_NightClockHide,,VERIFIED,ECL op 180 / Hud_Load
+0x00405260,func,Gui_IsCaptured,,VERIFIED,g_Gui flags bit 9
+0x00447764,func,Sound_TickBgmFades,,VERIFIED,called by Supervisor_Calc
+0x0045e3f0,func,Bgm_StartFadeOut,,VERIFIED,mode 1 N=secs*60
+0x00472840,func,Bgm_SetVolume,,VERIFIED,k=1-(1-v/100)^2
+0x0042b370,func,Enemy_ForwardDamageToRoot,void __thiscall(Enemy*,int d),VERIFIED,RE-Q28: not bombing; rd=d/2; root dmg timer -> rd/9 boss else 0; floor max(0 thr)
+0x004b49a0,global,g_EffBurstRandomBelow,double,VERIFIED,-990.0: EffInit_Burst random angle iff param.x <= this
+0x00451ce0,func,Box_FromCenterSize,,VERIFIED,this=min out; EDX=max out; min=c-s*0.5 max=s*0.5+c (RE-Q30)
+0x00442390,func,Window_Proc,,VERIFIED,WM_CLOSE -> 0x17CE8FC|=0x80 return 1 (never read) (RE-Q30)
+0x00472750,func,Bgm_StreamPlay,,VERIFIED,fade mode/n/N:=0 SetVolume(0) play (RE-Q30)
+0x004728e0,func,Bgm_StreamStop,,VERIFIED,stops buffers; fade mode:=0 (RE-Q30)
+0x00423d70,func,Vec3_Scale,,VERIFIED,v*=s in place (RE-Q30)
+0x00449c79,func,Supervisor_GetFlag13,,VERIFIED,Supervisor+0x150 bit 13 (RE-Q30)
+0x0041f110,func,Ecl_SpawnEnemyAbs,,VERIFIED,ops 90/92 spawn helper: pos (x y 0) as given; fails (0xF54E18=1) if life<1 or flag A bit 10 (RE-Q31)
+0x0041f280,func,Ecl_SpawnEnemyRel,,VERIFIED,op 91 spawn helper: pos (x y 0) + spawner final pos 0x2D88 (RE-Q31)
+0x00433880,func,Math_SinCosF32,,VERIFIED,fsincos; ECX=out sin f32 EDX=out cos f32; laser draw/cancel (RE-Q31)
+0x0042f340,func,Hud_SetTimer,,VERIFIED,HUD +0x24 := arg (Enemy_CheckTimeout only) (RE-Q34)
+0x00422c20,func,Hud_SetBarRequested,,VERIFIED,HUD +0x2C byte := arg (op 127 / Enemy_Free / death) (RE-Q34)
+0x0042f320,func,Hud_GetBarRequested,,VERIFIED,HUD +0x2C byte (RE-Q34)
+0x004230c0,func,Hud_SetBarTarget,,VERIFIED,HUD +0x30 := f32 arg (RE-Q34)
+0x004230e0,func,Hud_SetMarker,,VERIFIED,HUD +0x5C[i] start / +0x3C[i] end (op 158) (RE-Q34)
+0x00423110,func,Hud_SetMarkerColor,,VERIFIED,HUD +0x7C[i] (op 158) (RE-Q34)
+0x00423130,func,Hud_SetBarsLeft,,VERIFIED,HUD +0x20 (op 148) (RE-Q34)
+0x004396f8,func,AnmVm_IsWaitingInterrupt,,VERIFIED,VM flags +0x1F8 bit 14 (RE-Q34)
+0x004396b8,func,Hud_ResetSpellVms,,VERIFIED,impl +0x398C/+0x3C30/+0x3ED4 := -1, +0x21810 := 0 (RE-Q34)
+0x004068a0,func,AnmVm_InitWithSprite,,VERIFIED,AnmVm_Init + manager ptr +0x204 + SetSprite (RE-Q34)
+0x00438fe9,func,GameMgr_FreshStartFlag,,VERIFIED,returns 0x17CE8BC (RE-Q34)
+0x0040ba90,func,AnmMgr_SetCameraCache,,VERIFIED,AnmManager +0x24C4 := arg (RE-Q34)
+0x0040ba70,func,AnmMgr_ResetCameraCache,,VERIFIED,AnmManager +0x24C4 := 0xFF (RE-Q34)
+0x018b899c,global,g_PlayerHomingTarget,float[3],VERIFIED,player +0xE2AA4 homing target written by EnemyMgr_Calc 0x42D390 (RE-Q35)
+0x018b89b8,global,g_PlayerBossTargetSet,int,VERIFIED,player +0xE2AC0 boss offered as target this frame (RE-Q35)
+0x004501b0,func,ShotInit_Random,,VERIFIED,RE-Q36 shot init 7: phase test then Rng_Signed only on fire
+0x00439916,func,Spell_BgmRestartFlag,,VERIFIED,RE-Q36 card table 0x4C7670 record +0x10 for card 0x164D0B8
+0x0164d330,global,g_GmMusicPending,,VERIFIED,RE-Q36 gm+0x3DE28: 1 play slot 0 / 2 no play; only writer StageStart
+0x00427a60,func,EffUpd_DissolveRing,,VERIFIED,RE-Q36 type 50: segments := 32 every frame
+0x00406700,func,AnmVm_ClearVisible,,VERIFIED,RE-Q36 vm+0x1F8 &= ~1
+0x0043f980,func,Text_CreateWorkSurface,,VERIFIED,RE-Q36 CreateImageSurface(1024,64,A1R5G5B5) -> 0x1653620
+0x0043f10d,func,TextDib_Create,,VERIFIED,RE-Q36 top-down BI_BITFIELDS DIB section by D3D format table 0x4C7948
+0x0043f31c,func,TextDib_AlphaPass,,VERIFIED,RE-Q36 invert alpha; A1R5G5B5 vertical gradient on opaque pixels
+0x0043f898,func,TextDib_CopyToSurface,,VERIFIED,RE-Q36 row memcpy into the work surface
+0x0047abab,func,D3DXLoadSurfaceFromSurface,,INFERRED,RE-Q36 static D3DX8 (dst,pal,rect,src,pal,rect,filter,colorkey)
+0x0043ea00,func,Log_Printf,,VERIFIED,RE-Q37 append formatted line to log buffer 0x164D540
+0x0043eb60,func,Log_Error,,VERIFIED,RE-Q37 append line + error flag +0x2004 (MessageBox at exit)
+0x004439c0,func,Log_Flush,,VERIFIED,RE-Q37 at exit: separator; MessageBox if error flag; ./log.txt
+0x0043ce30,func,FuncChain_Clear,,VERIFIED,RE-Q37 JoinLoader + remove all calc/draw nodes
+0x0043cc60,func,FuncChain_RemoveAll,,INFERRED,RE-Q37 per list
+0x0043c317,func,GameMgr_ReturnsZero,,VERIFIED,RE-Q37 returns 0 (Extra difficulty entry test)
+0x00469fa9,func,KeyConfig_SetDigits,,VERIFIED,RE-Q37 two digit VMs from a button index (<0 hides)
+0x0046950b,func,KeyConfig_ReplaceButton,,VERIFIED,RE-Q37 every working-copy field == old := new
+0x0164d540,global,g_Log,,VERIFIED,RE-Q37 0x2000-byte log buffer; +0x2000 write ptr; +0x2004 error flag
+0x004c868c,global,g_KeyCfgLastButton,,VERIFIED,RE-Q37 i16 static init 32; first-down raw joystick button
+0x004c8010,global,g_ShotNamesShort,,VERIFIED,RE-Q38 char*[12] "Rm & Yk".."Yuyuko " (replay-save rows; same strings as 0x4C86C0)
+0x004c86c0,global,g_ShotNamesShort2,,VERIFIED,RE-Q38 char*[12] same strings as 0x4C8010
+0x004c7f48,global,g_NameCharset,,VERIFIED,RE-Q38 ptr to 96-cell name-entry charset 0x4B7340
+0x004c7aac,global,g_MusicRoomWarningLines,,VERIFIED,char*[7] music-room warning comment (16 §5.3)
+0x0045e1e0,func,Sound_QueueCommand,,VERIFIED,SoundManager+0x1F88 queue 31x0x10C (02 §4)
+0x004c73f0,global,g_EclSpNames,,VERIFIED,char*[9] ecldataNsp.ecl by g_StageIdx when GameFlags bit 14 (07 §1)
+0x004c7340,global,g_StdSpNames,,VERIFIED,char*[9] stageN_s.std by g_StageIdx when GameFlags bit 14 (06 §2)
+0x00476e9f,func,D3DX_Vec3Normalize,,VERIFIED,thunk via dispatch table 0x4C872C (RE-Q52; 05 §10)
+0x0048efb0,func,D3DX_Vec3Normalize_SSE,,VERIFIED,rsqrtss + 1 Newton step; installed on the reference CPU (RE-Q52)
+0x004791bc,func,D3DX_Vec3Normalize_x87,,INFERRED,non-SSE variant; default stub target
+0x0047b944,func,D3DX_SelectCpuImpl,,INFERRED,patches the D3DX dispatch table on first call
+0x004c872c,global,g_D3DX_Vec3NormalizeFn,,VERIFIED,runtime value 0x48EFB0 on the reference machine
+0x00450240,func,ShotInit_AimEnemy,,VERIFIED,shot init 1: aims at aimed enemy +0x2D34 (RE-Q53)
+0x004178a0,func,Gui_IsCardActive,,VERIFIED,g_Gui spell flag bit 0
+0x00421ba0,func,GameMgr_RankLerpI,,VERIFIED,a + ((b-a)*rank)/32 (int, trunc)
+0x00422b80,func,GameMgr_RankLerpF,,VERIFIED,a + ((b-a)*rank)/32 (float)
+0x0041fdd0,func,Gui_GetSpellTimeLeft,,VERIFIED,Timer_Get(g_Gui+0x108) remaining card time; ECL var 10100 (RE-Q54)
+0x0045bdc0,func,ScreenEffect_CalcShake,,VERIFIED,type 1 shake calc (13 §3)
+0x0045bf10,func,ScreenEffect_CalcShakeEnv,,VERIFIED,type 7 shake envelope calc; bit 10 / 0x160F534 tested live (RE-Q54)
+0x0040d3d0,func,Timer_Changed,,VERIFIED,cur (+8) != prev (+0)
+0x0040d410,func,Timer_Mod,,VERIFIED,cur % n
+0x0045b160,func,ScreenEffect_CalcFadeFrom,,VERIFIED,type 0 calc: alpha = ftol(255 - t*255/p0) >= 0; t >= p0 -> 0 else tick (RE-Q59)
+0x0045bb50,func,ScreenEffect_DrawFullRect,,VERIFIED,types 0/4 draw: full-screen rect colour +0x10<<24 | +0x18 (RE-Q59)
+0x0045bc40,func,ScreenEffect_DrawPlayfieldRect,,VERIFIED,types 2/6 draw: playfield rect colour +0x10<<24 | +0x18 (RE-Q59)
+0x0045bd70,func,ScreenEffect_DrawFlash,,VERIFIED,type 3 draw: playfield rect colour +0x10<<24 | colour (RE-Q59)
+0x00471662,func,MainMenu_OnRemove,,VERIFIED,calc-node on-remove: release anm 0x14/0x16 + surface 0; remove draw node; free (RE-Q60)
+0x00471651,func,MainMenu_OnRegisterThunk,,VERIFIED,calc-node on-register: MainMenu_OnRegister (RE-Q60)
+0x00467040,func,Anm_CopySpriteRect,,VERIFIED,flush + D3DXLoadSurfaceFromSurface between two anm textures; not a device call (RE-Q60)
+0x004e4b24,global,g_StageFogColor,,VERIFIED,g_Stage+0xAF4 fog colour; GameMgr_Calc z-clear colour arg (RE-Q60)
+0x00427b50,func,EffUpd_StageRing,,VERIFIED,type 0x40 update: I0 segs I1 waves scale.x width F1 radius rot.z start rot.y phase centre:=VM pos (RE-Q61)

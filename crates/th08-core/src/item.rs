@@ -1,0 +1,700 @@
+//! Item manager 0x1653648: spawn, per-frame calc, collection, draw (08 §8).
+
+use crate::anmmgr::{AnmManager, Tint};
+use crate::anmvm::{self, AnmVm, Timer};
+use crate::bullet::ANM_SLOT;
+use crate::drawlist::Recorder;
+use crate::effect::Effects;
+use crate::game::Sys;
+use crate::player::{Player, Popup, Stats};
+use crate::types::{ItemIdx, ShotType, angle_from, lo8};
+
+// 2096 slots × 0x2E4.
+pub const MAX_ITEMS: usize = 2096;
+// Item types; sprite script = etama.anm 0x3D + type.
+pub const POWER: u8 = 0;
+pub const POINT: u8 = 1;
+pub const BIG_POWER: u8 = 2;
+pub const BOMB: u8 = 3;
+pub const FULL_POWER: u8 = 4;
+pub const LIFE: u8 = 5;
+pub const STAR: u8 = 6;
+pub const TIME_ORB: u8 = 7;
+pub const CONVERTED: u8 = 8;
+// Small-popup colours per caller (13 §4).
+pub const POPUP_NORMAL: u32 = 0xFFFF_FFFF;
+pub const POPUP_MAX: u32 = 0xFFFF_FF00;
+pub const POPUP_POWER: u32 = 0xFFFF_C0A0;
+pub const POPUP_TIME: u32 = 0xDFFF_FFFF;
+pub const POPUP_TIME_OVER: u32 = 0xDFFF_EF80;
+// Tombstone in `order` for an item freed during this calc.
+const DEAD: ItemIdx = ItemIdx(u16::MAX);
+// Power level table 0x4C7A6C.
+const POWER_LEVELS: [f32; 6] = [8.0, 24.0, 48.0, 80.0, 128.0, 999.0];
+
+// Item object 0x2E4.
+#[derive(Clone, Debug, Default)]
+pub struct Item {
+    pub vm: AnmVm,
+    // +0x2A4 playfield px.
+    pub pos: [f32; 3],
+    // +0x2B0 px/frame; in state 2 it holds the start position instead.
+    pub vel: [f32; 3],
+    // +0x2BC fly-to target (state 2).
+    pub target: [f32; 3],
+    // +0x2C8 frames since spawn.
+    pub timer: Timer,
+    // +0x2D4 type.
+    pub kind: u8,
+    pub alive: bool,
+    // +0x2D6 normal sprite shown; set by spawn, flipped by the draw.
+    pub shown: bool,
+    // +0x2D7: 0 fall, 1 attracted, 2 fly to target, 3/5 time-orb rise.
+    pub state: u8,
+    // +0x2D8 max-value flag (point items collected at full value).
+    pub max_flag: bool,
+}
+
+#[derive(Clone)]
+pub struct ItemManager {
+    pub items: Vec<Item>,
+    // +0x17ADA4 search cursor.
+    cursor: usize,
+    // Live-item list in spawn order (the original's doubly linked list).
+    order: Vec<ItemIdx>,
+    // +0x17ADA8 live count, recomputed by calc.
+    pub count: usize,
+    // Time-orb gauge lock 0x18B89D4 = player +0xE2ADC, frames.
+    pub collect_timer: i32,
+    // Port-only counter of collections.
+    pub collected: u64,
+}
+
+impl Default for ItemManager {
+    fn default() -> Self {
+        Self {
+            items: vec![Item::default(); MAX_ITEMS],
+            cursor: 0,
+            order: Vec::new(),
+            count: 0,
+            collect_timer: 0,
+            collected: 0,
+        }
+    }
+}
+
+// Mode-1 cancel of all bullets to items (full power), run by the bullet manager.
+type Cancel<'a> =
+    dyn FnMut(&mut ItemManager, &mut AnmManager, &mut crate::rng::Rng, &mut Player) + 'a;
+
+// Index from an i32: the value of `as usize` for ≥ 0; a negative one is out of every table.
+fn uidx(v: i32) -> usize {
+    v.cast_unsigned() as usize
+}
+
+// Item slot handle of a pool index (< 2096, fits u16).
+fn iidx(i: usize) -> ItemIdx {
+    ItemIdx(i as u16)
+}
+
+// Number of POWER_LEVELS entries ≤ power.
+pub fn power_level(p: f32) -> usize {
+    POWER_LEVELS.iter().filter(|&&t| t <= p).count()
+}
+
+// Point item value; `div` 10 gives the converted-point variant.
+pub fn point_value(max: i32, y: f32, line: f32, max_flag: bool, doubled: bool, div: i32) -> i32 {
+    let mut v = if y < line || max_flag {
+        max
+    } else {
+        max / 2 - (y - line) as i32 * (max / 1000)
+    };
+    v /= div;
+    v -= v % 10;
+    if doubled {
+        v *= 2;
+    }
+    v
+}
+
+// Next extend threshold in point items: `difficulty` = gm+0x30, n = extends so far.
+pub fn next_extend(difficulty: i32, n: i32) -> i32 {
+    if difficulty < 4 {
+        [100, 250, 500, 800, 1100, 9999]
+            .get(uidx(n))
+            .copied()
+            .unwrap_or(9999 + 500 * (n - 5))
+    } else {
+        [200, 666, 9999].get(uidx(n)).copied().unwrap_or(99_999)
+    }
+}
+
+impl ItemManager {
+    pub fn live(&self) -> impl Iterator<Item = &Item> {
+        self.items.iter().filter(|i| i.alive)
+    }
+
+    pub fn count(&self, kind: u8) -> i32 {
+        self.live().filter(|i| i.kind == kind).map(|_| 1).sum()
+    }
+
+    // ItemMgr_DropAttracted 0x441530 (09 §6.1): every state-1 item falls again, state 0, vel (0, −0.9, 0).
+    pub fn drop_attracted(&mut self) {
+        for it in self.items.iter_mut().filter(|i| i.alive && i.state == 1) {
+            it.state = 0;
+            it.vel = [0.0, -0.9, 0.0];
+        }
+    }
+
+    // Bomb start (09 §7): every item flies to the player (state 1, velocity (0, −0.5)).
+    pub fn attract_all(&mut self) {
+        for it in self.items.iter_mut().filter(|i| i.alive && i.state != 1) {
+            it.state = 1;
+            it.vel = [0.0, -0.5, 0.0];
+        }
+    }
+
+    // ItemMgr_Spawn 0x4400A0. RNG: mode 2 x then y; mode 3/5 vel.y (Float) then vel.x (Signed).
+    // No type check: type −1 is stored as byte 0xFF, script 0x3C, collected with no effect.
+    pub fn spawn(
+        &mut self,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        player: &Player,
+        pos: [f32; 3],
+        kind: i32,
+        mode: u8,
+    ) -> Option<ItemIdx> {
+        if pos[0] < -64.0 || pos[0] > 448.0 {
+            return None;
+        }
+        // Byte store of the type: −1 becomes 0xFF.
+        let (mut kind, mut mode) = (lo8(kind), mode);
+        if player.stats.power >= 128.0 && (kind == POWER || kind == BIG_POWER) {
+            kind = CONVERTED;
+        }
+        if kind == TIME_ORB {
+            mode = 3;
+        } else if kind == 10 {
+            (kind, mode) = (TIME_ORB, 5);
+        }
+        // A time orb probes only the cursor slot; occupied → nothing.
+        let probes = if kind == TIME_ORB { 1 } else { MAX_ITEMS };
+        let mut slot = None;
+        for _ in 0..probes {
+            let i = self.cursor % MAX_ITEMS;
+            self.cursor = i + 1;
+            if !self.items[i].alive {
+                slot = Some(i);
+                break;
+            }
+        }
+        let i = slot?;
+        if self.cursor > MAX_ITEMS - 1 {
+            self.cursor = 0;
+        }
+        let mut it = Item {
+            pos,
+            vel: [0.0, -2.2, 0.0],
+            kind,
+            alive: true,
+            shown: true,
+            state: mode,
+            ..Item::default()
+        };
+        match mode {
+            2 => {
+                let x = rng.next_f32() * 288.0 + 48.0;
+                let y = rng.next_f32() * 192.0 - 64.0;
+                it.target = [x, y, 0.0];
+                it.vel = pos;
+            }
+            3 | 5 => {
+                it.vel[1] = -2.0 - rng.next_f32() * 0.2;
+                it.vel[0] = 0.6 * rng.next_signed();
+                if player.state == 2 {
+                    it.state = 0;
+                    it.vel = [0.0, -0.9, 0.0];
+                }
+            }
+            _ => {}
+        }
+        anm.set_script(
+            rng,
+            &mut it.vm,
+            ANM_SLOT,
+            uidx(0x3D + i32::from(kind.cast_signed())),
+        );
+        it.vm.color = [0xFF; 4];
+        it.vm.flags |= anmvm::F_ZWRITE_OFF;
+        self.items[i] = it;
+        self.order.push(iidx(i));
+        Some(iidx(i))
+    }
+
+    // Power reached 128: every other type 0/2 item becomes type 8 (effect 0, script 0x45).
+    fn convert_power_items(
+        &mut self,
+        anm: &mut AnmManager,
+        rng: &mut crate::rng::Rng,
+        except: ItemIdx,
+        fx: &mut Effects,
+    ) {
+        for i in 0..MAX_ITEMS {
+            let it = &mut self.items[i];
+            if i == except.idx() || !it.alive || !(it.kind == POWER || it.kind == BIG_POWER) {
+                continue;
+            }
+            it.kind = CONVERTED;
+            if it.vel[1] > -0.5 {
+                it.vel = [0.0, -0.5, 0.0];
+            }
+            let p = it.pos;
+            fx.spawn(anm, rng, 0, p, 1, 0xFFFF_FFFF);
+            let it = &mut self.items[i];
+            let mut vm = std::mem::take(&mut it.vm);
+            anm.set_script(rng, &mut vm, ANM_SLOT, 0x45);
+            vm.flags |= anmvm::F_ZWRITE_OFF;
+            self.items[i].vm = vm;
+        }
+    }
+
+    // Collection handlers 0x440CF0–0x4412B0; score is stored /10 by `add_score`.
+    fn collect(
+        &mut self,
+        idx: ItemIdx,
+        anm: &mut AnmManager,
+        p: &mut Player,
+        spell: bool,
+        cancel: &mut Cancel,
+        sys: &mut Sys,
+    ) {
+        let it = &self.items[idx.idx()];
+        let (kind, y, max_flag) = (it.kind, it.pos[1], it.max_flag);
+        let pos = it.pos;
+        let mut popup = |v: i32, c: u32| sys.ov.popup(pos, v, c);
+        let line = p.sht.poc_line;
+        let st = &mut p.stats;
+        match kind {
+            POWER | BIG_POWER => {
+                if st.power < 128.0 {
+                    // Item_CollectPowerSmall 0x440CF0 (type 0 only): 0x164D0B0 := 0 before GameMgr_AddPower (11 §2).
+                    if kind == POWER {
+                        st.d0b0 = 0;
+                    }
+                    let level = power_level(st.power);
+                    st.power += if kind == POWER { 1.0 } else { 8.0 };
+                    // GameMgr_AddPower 0x441850 checksum (4 draws); reaching 128 adds SetPower's 4.
+                    Stats::checksum(sys.rng);
+                    if st.power >= 128.0 {
+                        st.set_power(128.0, sys.rng);
+                        if !spell {
+                            cancel(self, anm, sys.rng, p);
+                        }
+                        // Hud_ShowMessage(0, 1) "Full Power Mode!" (0x17CE8CC := 2 when the HUD takes the popup);
+                        // the message is outside the spell-card test.
+                        p.stats.popups.push(Popup::Message(1, 0));
+                        self.convert_power_items(anm, sys.rng, idx, sys.fx);
+                    }
+                    let st = &mut p.stats;
+                    st.add_score(10);
+                    if power_level(st.power) == level {
+                        popup(10, POPUP_NORMAL);
+                    } else {
+                        sys.sound.play(crate::sound::POWERUP);
+                        popup(-1, POPUP_POWER);
+                    }
+                }
+                // Type 0 always adds rank +1, even at full power.
+                if kind == POWER {
+                    p.stats.rank(sys.rank, 1);
+                }
+            }
+            POINT => {
+                let max = st.max_point;
+                let v = point_value(max, y, line, max_flag, st.human_max(), 1);
+                self.items[idx.idx()].max_flag = v >= max;
+                popup(v, if v >= max { POPUP_MAX } else { POPUP_NORMAL });
+                st.add_score(v);
+                st.point_items += 1;
+                st.rec.points += 1;
+                st.point_items2 += 1;
+                st.rank(sys.rank, if v >= max { 10 } else { 3 });
+                while st.extends >= 0 && st.point_items2 >= st.next_extend {
+                    st.extend(sys);
+                    st.extends += 1;
+                    st.next_extend = next_extend(st.difficulty, st.extends);
+                }
+                st.point_counter += 1;
+                // Item_CollectPoint 0x440E40 updates the checksum (11 §1.5).
+                Stats::checksum(sys.rng);
+            }
+            CONVERTED => {
+                let v = point_value(st.max_point, y, line, max_flag, st.human_max(), 10);
+                let m = st.max_point / 10 - (st.max_point / 10) % 10;
+                popup(v, if v >= m { POPUP_MAX } else { POPUP_NORMAL });
+                st.add_score(v);
+            }
+            BOMB => {
+                if st.bombs < 8.0 {
+                    st.add_bombs(1.0, sys.rng);
+                    sys.panel.mark_bombs(2);
+                }
+                // Bomb item rank +5 (11 §3.2 rank deltas).
+                st.rank(sys.rank, 5);
+            }
+            FULL_POWER => {
+                // This cancel has no spell-card test, unlike the power-item one.
+                if st.power < 128.0 {
+                    cancel(self, anm, sys.rng, p);
+                    p.stats.popups.push(Popup::Message(1, 0));
+                    sys.sound.play(crate::sound::POWERUP);
+                    popup(-1, POPUP_POWER);
+                    self.convert_power_items(anm, sys.rng, idx, sys.fx);
+                }
+                let st = &mut p.stats;
+                st.set_power(128.0, sys.rng);
+                popup(1000, POPUP_NORMAL);
+                st.add_score(1000);
+            }
+            LIFE => st.extend(sys),
+            STAR => {
+                let mut v = if p.bomb_active {
+                    100
+                } else {
+                    (st.graze_total / 40) * 10 + 300
+                };
+                if v < 1 {
+                    v = 10;
+                }
+                sys.ov.popup_special(pos, v, POPUP_NORMAL);
+                st.add_score(v);
+            }
+            TIME_ORB => {
+                let v = if p.bomb_active {
+                    100
+                } else if st.point_items < 2000 {
+                    ((st.point_items2 / 2) * 10).max(100)
+                } else {
+                    10000
+                };
+                sys.ov.popup_special(
+                    pos,
+                    v,
+                    if st.time >= st.time_threshold {
+                        POPUP_TIME_OVER
+                    } else {
+                        POPUP_TIME
+                    },
+                );
+                st.add_score(v);
+                st.add_time(1, sys.rng);
+                // Spell_AddBonus 0x416B10 +8000, applied by the bullet manager calc right after this.
+                st.spell_bonus_orbs += 1;
+                // ±111 by player byte +3; a non-forced GaugeAdd is skipped while bombing (07 §10.3).
+                if self.collect_timer == 0 && !p.bombing {
+                    st.gauge_add(if p.focus != 0 { 111 } else { -111 });
+                }
+            }
+            _ => {}
+        }
+        self.collected += 1;
+    }
+
+    // ItemMgr_Calc 0x440500, in list order. `cancel` runs a mode-1 cancel of all bullets in the
+    // middle of the loop, as the original does from inside the collection handler.
+    pub fn calc(
+        &mut self,
+        anm: &mut AnmManager,
+        p: &mut Player,
+        spell: bool,
+        mut cancel: impl FnMut(&mut ItemManager, &mut AnmManager, &mut crate::rng::Rng, &mut Player),
+        sys: &mut Sys,
+    ) {
+        let gs = anm.speed;
+        // Box C from the human sht; fall multiplier m from the sht chosen by player byte +3.
+        let c = p.sht.collect;
+        let m = p.item_sht().fall * gs;
+        self.count = 0;
+        let mut sound = None;
+        let mut k = 0;
+        while k < self.order.len() {
+            let ix = self.order[k];
+            k += 1;
+            if ix == DEAD || !self.items[ix.idx()].alive {
+                continue;
+            }
+            let i = ix.idx();
+            self.count += 1;
+            let ps = p.state;
+            let it = &mut self.items[i];
+            let t = it.timer.cur;
+            // 0 common motion, 1 collection test, 2 no test
+            let mut step = 0;
+            match it.state {
+                2 => {
+                    if t < 60 {
+                        let f = t as f32 / 60.0;
+                        for a in 0..3 {
+                            it.pos[a] = it.vel[a] * (1.0 - f) + it.target[a] * f;
+                        }
+                        step = 1;
+                    } else if t == 60 {
+                        // State 0 only at exactly t == 60; common motion runs either way.
+                        it.vel = [0.0; 3];
+                        it.state = 0;
+                    }
+                }
+                3 => {
+                    it.vel[1] += 0.05 * gs;
+                    // Shot timer player +0xE2AC4 < 0 = not shooting.
+                    if it.vel[1] > 0.0 || p.shot_timer.cur < 0 {
+                        it.state = 1;
+                    }
+                    if ps == 2 {
+                        it.state = 0;
+                        it.vel = [0.0, -0.7, 0.0];
+                    }
+                }
+                5 => {
+                    it.vel[1] += 0.05 * gs;
+                    for a in 0..3 {
+                        it.pos[a] += it.vel[a] * m;
+                    }
+                    if it.vel[1] > 0.0 {
+                        it.state = 1;
+                        if ps == 2 {
+                            it.state = 0;
+                            it.vel = [0.0, -0.7, 0.0];
+                        }
+                    } else {
+                        step = 2;
+                    }
+                }
+                _ => {
+                    // Shot types 1 (Marisa & Alice) and 6 (Marisa solo) auto-collect above the line.
+                    let attract = it.state == 1
+                        || (p.pos[1] < p.sht.poc_line
+                            && (p.stats.power >= 128.0
+                                || p.focus != 0
+                                || matches!(p.shot(), ShotType::MarisaAlice | ShotType::Marisa)));
+                    if attract {
+                        if matches!(ps, 1 | 2) {
+                            it.vel[1] = -0.7;
+                            it.state = 0;
+                        } else {
+                            let a = angle_from(it.pos, p.pos);
+                            let s = p.sht.attract_speed;
+                            it.vel = crate::fmath::polar(a, s);
+                            it.state = 1;
+                            for a in 0..3 {
+                                it.pos[a] += it.vel[a] * gs;
+                            }
+                            step = 1;
+                        }
+                    } else {
+                        it.vel[0] = 0.0;
+                        it.vel[2] = 0.0;
+                        it.vel[1] = it.vel[1].max(-2.2);
+                    }
+                }
+            }
+            if step == 0 {
+                for a in 0..3 {
+                    it.pos[a] += it.vel[a] * m;
+                }
+                // Only a falling (state 0) item below 448 + 16 is lost (rank −3).
+                if it.state != 0 || it.pos[1] <= 448.0 + 16.0 {
+                    if it.vel[1] >= 3.0 {
+                        it.vel[1] = 3.0;
+                    } else {
+                        it.vel[1] += 0.03 * m;
+                    }
+                    step = 1;
+                } else {
+                    p.stats.rank(sys.rank, -3);
+                    it.alive = false;
+                    self.order[k - 1] = DEAD;
+                    continue;
+                }
+            }
+            if step == 1 && it.state != 3 && p.collect_test(it.pos, c) {
+                // The handler (and its cancel to items) runs while the item still occupies its slot.
+                self.collect(ix, anm, p, spell, &mut cancel, sys);
+                // One sound per calc after the loop: 0x2C once any max-value item was collected, else 0x15.
+                if sound != Some(crate::sound::ITEM1) {
+                    sound = Some(if self.items[i].max_flag {
+                        crate::sound::ITEM1
+                    } else {
+                        crate::sound::ITEM0
+                    });
+                }
+                self.items[i].alive = false;
+                self.order[k - 1] = DEAD;
+                continue;
+            }
+            let it = &mut self.items[i];
+            it.timer.tick(gs);
+            if it.vm.script.is_some() {
+                it.vm.run(anm, sys.rng);
+            }
+        }
+        self.order
+            .retain(|&i| i != DEAD && self.items[i.idx()].alive);
+        if let Some(id) = sound {
+            sys.sound.play(id);
+        }
+        // Gauge lock decremented and clamped at 0 after the loop.
+        if self.collect_timer != 0 {
+            self.collect_timer = (self.collect_timer - 1).max(0);
+        }
+    }
+
+    // Item draw, draw-phase step: sprite / colour / pos and the `shown` latch, in list order.
+    pub fn draw_step(&mut self, anm: &AnmManager) {
+        for k in 0..self.order.len() {
+            let it = &mut self.items[self.order[k].idx()];
+            if !it.alive {
+                continue;
+            }
+            let y = it.pos[1];
+            // Above the playfield: arrow sprite at y 8, alpha fading with distance.
+            // Sprite / colour / z-write change only when +0x2D6 flips, so the script's colour animation shows.
+            if y < -8.0 {
+                if it.shown {
+                    // The type byte is sign-extended (`movsx`): type 0xFF → arrow sprite 0xB5.
+                    it.vm
+                        .set_sprite(anm, 0xB6 + i32::from(it.kind.cast_signed()));
+                    it.shown = false;
+                    it.vm.flags |= anmvm::F_ZWRITE_OFF;
+                }
+                it.vm.color[anmvm::A] = lo8((255 - ((8.0 - y) * 255.0 / 128.0) as i32).max(64));
+                it.vm.pos = [it.pos[0] + 32.0, 8.0 + 16.0, 0.0];
+            } else {
+                if !it.shown {
+                    it.vm
+                        .set_sprite(anm, 0xAC + i32::from(it.kind.cast_signed()));
+                    it.shown = true;
+                    it.vm.color = [0xFF; 4];
+                    it.vm.flags |= anmvm::F_ZWRITE_OFF;
+                }
+                it.vm.pos = [it.pos[0] + 32.0, y + 16.0, 0.0];
+            }
+            anm.prepare(&mut it.vm, 2);
+        }
+    }
+
+    // Item draw emit: Draw2DRot at z 0.15, in list order.
+    pub fn emit(&self, anm: &AnmManager, rec: &mut Recorder, tint: Option<Tint>) {
+        for &i in &self.order {
+            let it = &self.items[i.idx()];
+            if it.alive {
+                anm.emit_tinted(rec, &it.vm, 2, 0.15, tint);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn point_values() {
+        assert_eq!(point_value(10000, 100.0, 128.0, false, false, 1), 10000);
+        assert_eq!(point_value(10000, 300.0, 128.0, true, false, 1), 10000);
+        assert_eq!(
+            point_value(10000, 228.0, 128.0, false, false, 1),
+            5000 - 100 * 10
+        );
+        assert_eq!(
+            point_value(10000, 228.9, 128.0, false, true, 1),
+            2 * (5000 - 100 * 10)
+        );
+        assert_eq!(point_value(12345, 128.5, 128.0, false, false, 1), 6170);
+        assert_eq!(point_value(10000, 100.0, 128.0, false, false, 10), 1000);
+        assert_eq!(point_value(12345, 228.0, 128.0, false, false, 10), 490);
+    }
+
+    #[test]
+    fn extend_table() {
+        assert_eq!(
+            (0..8).map(|n| next_extend(1, n)).collect::<Vec<_>>(),
+            [100, 250, 500, 800, 1100, 9999, 10499, 10999]
+        );
+        assert_eq!(
+            (0..4).map(|n| next_extend(4, n)).collect::<Vec<_>>(),
+            [200, 666, 9999, 99999]
+        );
+    }
+
+    #[test]
+    fn power_levels() {
+        assert_eq!(power_level(0.0), 0);
+        assert_eq!(power_level(8.0), 1);
+        assert_eq!(power_level(127.0), 4);
+        assert_eq!(power_level(128.0), 5);
+    }
+
+    // The full-power cancel runs while the collected item still occupies its slot.
+    #[test]
+    fn collected_item_occupied_during_cancel() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let mut anm = AnmManager::default();
+        let mut p = Player::default();
+        p.update_boxes();
+        let mut m = ItemManager::default();
+        let pos = p.pos;
+        assert_eq!(
+            m.spawn(&mut anm, sys.rng, &p, pos, i32::from(FULL_POWER), 0),
+            Some(ItemIdx(0))
+        );
+        let mut got = None;
+        m.calc(
+            &mut anm,
+            &mut p,
+            false,
+            |m, anm, rng, p| {
+                m.cursor = 0;
+                got = m.spawn(anm, rng, p, [100.0, 100.0, 0.0], i32::from(STAR), 1);
+            },
+            sys,
+        );
+        assert_eq!(got, Some(ItemIdx(1)));
+        assert!(!m.items[0].alive);
+    }
+
+    // Type −1 takes a slot as byte 0xFF; its collection changes nothing but frees the slot.
+    #[test]
+    fn negative_type_spawned() {
+        let mut ts = crate::game::TestSys::default();
+        let sys = &mut ts.sys();
+        let mut anm = AnmManager::default();
+        let mut p = Player::default();
+        p.update_boxes();
+        let mut m = ItemManager::default();
+        let pos = p.pos;
+        assert_eq!(m.spawn(&mut anm, sys.rng, &p, pos, -1, 1), Some(ItemIdx(0)));
+        assert_eq!((m.items[0].kind, m.cursor), (0xFF, 1));
+        let st = p.stats.clone();
+        m.calc(&mut anm, &mut p, false, |_, _, _, _| {}, sys);
+        assert!(!m.items[0].alive);
+        assert_eq!((p.stats.score10, p.stats.power), (st.score10, st.power));
+    }
+
+    #[test]
+    fn drop_attracted_only_state_1() {
+        let mut m = ItemManager::default();
+        for (k, st) in [1u8, 0, 3].into_iter().enumerate() {
+            let it = &mut m.items[k];
+            it.alive = true;
+            it.state = st;
+            it.vel = [5.0, -1.0, 0.0];
+        }
+        m.drop_attracted();
+        assert_eq!((m.items[0].state, m.items[0].vel), (0, [0.0, -0.9, 0.0]));
+        assert_eq!((m.items[1].state, m.items[1].vel), (0, [5.0, -1.0, 0.0]));
+        assert_eq!(m.items[2].state, 3);
+    }
+}

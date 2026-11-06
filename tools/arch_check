@@ -1,0 +1,184 @@
+#!/bin/bash
+# usage: tools/arch_check freeze DIR | run DIR — port-vs-port reference traces and draw hashes.
+# freeze: build, then write port traces + draw hashes of all sessions, demos 0-3 and the pilot replays into DIR.
+# run: fmt, 0-warning build, clippy, core deps (no wgpu/cpal/winit/egui/rfd/clap/liblzma in th08-core), wasm + android
+# check, cargo test, then rerun every item (plus emit-off session replays) and compare with DIR; exit 1 on any diff.
+# Env: J, CARGO_TARGET_DIR, RUN_OUT, ONLY (item regex), FAST=1 (traces only), SCOPE=logic (LOGIC_ITEMS), PACK (pack mounted, same results).
+set -u
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
+BIN=$TARGET/release
+# Binary names (cargo --bin, in crates/th08-tools); these names must stay.
+SESSION_BIN=session DEMOSYNC_BIN=demosync DRAWRUN_BIN=drawrun
+SESSIONS="golden fullrun_noclip selftest1 gameover_save musicroom_practice options_cfg"
+SESSION_SRC=$ROOT/specs/data/sessions
+source "$ROOT/re/tools/localenv.sh"
+PILOT_SRC=${PILOT_SRC:-$TH08_EXT_REPLAYS/ref}
+LOGIC_ITEMS="s_golden s_gameover_save s_options_cfg f_fullrun_noclip d_0 d_3 p_gensokyou_th8_udAr02 p_gensokyou_th8_udDn14 n_s_golden n_p_gensokyou_th8_udAr02"
+FULLRUN_TO=${FULLRUN_TO:-80000}
+# Default J: half the hardware threads (SMT gives no more), capped by MemAvailable / JOB_MB (measured item peak RSS ≤ 0.6 GB).
+JOB_MB=${JOB_MB:-1200}
+J=${J:-$(awk -v c="$(nproc)" -v m="$JOB_MB" '/^MemAvailable/ {j = int($2 / 1024 / m); if (j > c / 2) j = c / 2; if (j < 1) j = 1; print j}' /proc/meminfo)}
+# A replay batch (systemd unit th-b-*) grows after we start: leave it room (headless GPU allocs fail first).
+{ systemctl --user list-units 'th-b-*' --state=active --no-legend 2>/dev/null | grep -q . || [[ -e $ROOT/target/queue/batch.running ]]; } && (( J > 6 )) && J=6
+TIME=; [[ -x /usr/bin/time ]] && TIME=/usr/bin/time
+export TH08_DIR="${TH08_DIR:-$TH08_GAME_SRC/}"
+export XDG_CONFIG_HOME=$ROOT/target/verify-42/cfg
+export CARGO_TARGET_DIR=$TARGET
+if [[ -n ${PACK:-} ]]; then export TH08_PACK=$(realpath "$PACK") RUST_LOG=th08::packs=info; echo "pack $TH08_PACK"; else unset TH08_PACK; fi
+export BIN SESSION_BIN DEMOSYNC_BIN DRAWRUN_BIN SESSION_SRC PILOT_SRC TIME
+
+mode=${1:-} dir=${2:-}
+FAST=${FAST:-}; SCOPE=${SCOPE:-}; [[ $mode == freeze ]] && FAST= SCOPE=
+[[ -z $SCOPE || $SCOPE == logic ]] || { echo "unknown SCOPE=$SCOPE"; exit 2; }
+[[ $SCOPE == logic ]] && FAST=1
+[[ ($mode == freeze || $mode == run) && -n $dir ]] || { sed -n 2,6p "$0"; exit 2; }
+dir=$(realpath -m "$dir")
+cd "$ROOT" || exit 2
+
+items() {
+  for s in $SESSIONS; do echo "s_$s"; done
+  for n in 0 1 2 3; do echo "d_$n"; done
+  for d in "$PILOT_SRC"/*/; do echo "p_$(basename "$d")"; done
+}
+
+# Emit-off items (run only): n_<session or pilot item>, trace compared with that item's reference trace.
+noemit_items() {
+  items | grep -E '^(s|p)_' | sed 's/^/n_/'
+}
+
+all_items() { if [[ $SCOPE == logic ]]; then tr ' ' '\n' <<< "$LOGIC_ITEMS"; else items; noemit_items; fi; }
+
+# One item into $1/$2: trace.txt, report.txt (stdout), draw.hash, time (seconds + peak RSS kB per process),
+# digest (sha256 of trace, report, draw.hash; written last — tools/arch_job counts */digest).
+run_item() {
+  local o=$1/$2 n=${2#?_}
+  rm -rf "$o"; mkdir -p "$o"
+  local dl="--draw-hash --no-drawlog"; [[ -n ${FAST:-} ]] && dl=--no-drawlog
+  local t=(); [[ -n $TIME ]] && t=("$TIME" -a -o "$o/time" -f "%e %M")
+  case $2 in
+    n_*) local r=${2#n_} src=$SESSION_SRC; [[ $r == p_* ]] && src=$PILOT_SRC
+         nice -n 10 "${t[@]}" "$BIN/$SESSION_BIN" "$src/${r#?_}" --out "$o" --no-emit --no-drawlog > "$o/report.txt" 2> "$o/stderr.txt" ;;
+    f_*) nice -n 10 "${t[@]}" "$BIN/$SESSION_BIN" "$SESSION_SRC/$n" --out "$o" --no-drawlog --to "$FULLRUN_TO" > "$o/report.txt" 2> "$o/stderr.txt" ;;
+    s_*) nice -n 10 "${t[@]}" "$BIN/$SESSION_BIN" "$SESSION_SRC/$n" --out "$o" $dl > "$o/report.txt" 2> "$o/stderr.txt" ;;
+    p_*) nice -n 10 "${t[@]}" "$BIN/$SESSION_BIN" "$PILOT_SRC/$n" --out "$o" $dl > "$o/report.txt" 2> "$o/stderr.txt" ;;
+    d_*) nice -n 10 "${t[@]}" "$BIN/$DEMOSYNC_BIN" "$n" 1-9999999 > "$o/trace.txt" 2> /dev/null
+         [[ -n ${FAST:-} ]] && : > "$o/report.txt" || nice -n 10 "${t[@]}" "$BIN/$DRAWRUN_BIN" --draw-hash "$o" demo "$n" > "$o/report.txt" 2> "$o/stderr.txt" ;;
+  esac
+  {
+    echo "trace $(sha256sum < "$o/trace.txt" | cut -c1-64)"
+    echo "report $(sha256sum < "$o/report.txt" | cut -c1-64)"
+    echo "draw $(cat "$o/draw.hash" 2> /dev/null | sha256sum | cut -c1-64)"
+  } > "$o/digest"
+  echo "done $2"
+}
+export -f run_item; export FAST FULLRUN_TO
+
+# Items of $ITEMS in the order of $2/times.txt (previous seconds, descending; unknown items first, in list order).
+ordered() {
+  local tf=$1/times.txt
+  ${ITEMS:-items} | grep -E "${ONLY:-.}" | if [[ -f $tf ]]; then
+    awk 'NR == FNR {t[$1] = $2; next} {print ($1 in t ? t[$1] : 1e9), NR, $1}' "$tf" - | sort -k1,1gr -k2,2n | cut -d' ' -f3
+  else cat; fi
+}
+
+# Merges this run's per-item seconds and peak RSS into $1/times.txt (items not run keep their old line).
+save_times() {
+  local tf=$1/times.txt
+  for d in "$1"/*/; do
+    [[ -f $d/time ]] && awk -v i="$(basename "$d")" '$1 ~ /^[0-9.]+$/ {s += $1; if ($2 > m) m = $2} END {print i, s, m}' "$d/time"
+  done > "$tf.new"
+  [[ -f $tf ]] && awk 'NR == FNR {n[$1] = 1; next} !($1 in n)' "$tf.new" "$tf" >> "$tf.new"
+  sort "$tf.new" > "$tf"; rm -f "$tf.new"
+}
+
+# run_all OUT [TIMES_DIR]: runs the items into OUT, longest first by TIMES_DIR/times.txt (default OUT).
+run_all() {
+  ordered "${2:-$1}" | xargs -P "$J" -I{} bash -c 'run_item "$0" "$1"' "$1" {} | sort | tr '\n' ' '; echo
+}
+
+build() {
+  cargo build -q --release --workspace 2>&1 | grep -E '^error' && { echo "BUILD FAILED"; exit 1; }
+}
+
+t0=$SECONDS
+if [[ $mode == freeze ]]; then
+  build
+  mkdir -p "$dir"
+  echo "J=$J"
+  run_all "$dir"
+  save_times "$dir"
+  items | grep -E "${ONLY:-.}" | while read -r i; do echo "$i $(tr '\n' ' ' < "$dir/$i/digest")"; done > "$dir/digests.txt"
+  echo "frozen $(wc -l < "$dir/digests.txt") items into $dir ($(du -sh "$dir" | cut -f1)) in $((SECONDS - t0)) s"
+  exit 0
+fi
+
+fail=0
+cargo fmt --all --check > /dev/null 2>&1 && echo "fmt ok" || { echo "fmt FAILED"; fail=1; }
+w=$(cargo build --release --workspace 2>&1 | grep -cE '^(warning|error)')
+[[ $w == 0 ]] && echo "build ok, 0 warnings" || { echo "build: $w warnings/errors"; fail=1; }
+# Clippy wall: every target, any warning fails. CLIPPY_PENDING lists files whose warnings are counted, not failed;
+# empty = `cargo clippy … -- -D warnings`.
+CLIPPY_PENDING=${CLIPPY_PENDING-}
+if [[ -z $CLIPPY_PENDING ]]; then
+  cargo clippy -q --workspace --all-targets -- -D warnings > /dev/null 2>&1 && echo "clippy ok, 0 warnings" || { echo "clippy FAILED"; fail=1; }
+elif cl=$("$ROOT/tools/lint_subset" 2>&1); then
+  read -r cw cp < <(awk -v p=" $CLIPPY_PENDING " '$2 != "total" {if (index(p, " " $2 " ")) n += $1; else w += $1} END {print w + 0, n + 0}' <<< "$cl")
+  [[ $cw == 0 ]] && echo "clippy ok, 0 warnings ($cp in pending files)" || { echo "clippy: $cw warnings"; grep -vE "total|${CLIPPY_PENDING// /|}" <<< "$cl" | head; fail=1; }
+else echo "clippy FAILED"; tail -5 <<< "$cl"; fail=1; fi
+cdeps=$(cargo tree -q -p th08-core -e normal --prefix none 2>&1 | grep -E '^(wgpu|cpal|winit|egui|rfd|clap|liblzma) ' | sort -u | tr '\n' ' ')
+[[ -z $cdeps ]] && echo "core deps ok" || { echo "core deps FAILED: $cdeps"; fail=1; }
+srefs=$(python3 "$ROOT/tools/spec_refs.py" 2>&1 | grep "^spec_refs:")
+[[ $srefs == *" 0 broken"* ]] && echo "spec refs ok" || { echo "spec refs FAILED: $srefs"; fail=1; }
+cargo check -q --release --workspace --lib --target wasm32-unknown-unknown > /dev/null 2>&1 && echo "wasm ok" || { echo "wasm FAILED"; fail=1; }
+ta=$SECONDS; a=$("$ROOT/tools/android_check"); ar=$?; echo "$a ($((SECONDS - ta)) s)"; [[ $ar == 0 ]] || fail=1
+t=$(cargo test -q --release --workspace 2>&1)
+if grep -qE 'FAILED|panicked|error(\[|:)' <<< "$t"; then echo "cargo test FAILED"; grep -E 'FAILED|panicked' <<< "$t" | head; fail=1
+else echo "cargo test ok ($(grep -oE '[0-9]+ passed' <<< "$t" | awk '{s+=$1} END{print s+0}') passed)"; fi
+echo "checks done in $((SECONDS - t0)) s"
+
+out=${RUN_OUT:-$TARGET/arch_run}
+mkdir -p "$out"; find "$out" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +  # fresh dirs: progress counts */digest
+tdir=$out; [[ -f $out/times.txt ]] || tdir=$dir
+echo "J=$J"
+ITEMS=all_items run_all "$out" "$tdir" > /dev/null  # both batches in one queue: longest first across all
+nd=0
+while read -r i _ tr _ rp _ dr; do
+  [[ -f $out/$i/digest ]] || { echo "$i MISSING"; nd=$((nd + 1)); continue; }
+  read -r _ tr2 _ rp2 _ dr2 <<< "$(tr '\n' ' ' < "$out/$i/digest")"
+  s=""
+  [[ $tr == "$tr2" ]] || s+=" trace DIFFERS ($(LC_ALL=C cmp "$dir/$i/trace.txt" "$out/$i/trace.txt" | head -1 | sed 's/.*, //'))"
+  [[ -n ${FAST:-} || $rp == "$rp2" ]] || s+=" report DIFFERS"
+  if [[ -z ${FAST:-} && $dr != "$dr2" ]]; then
+    s+=" draw DIFFERS"
+    # First differing draw.hash line → present number; rerun hint with a ±5 present window around it.
+    f=$(diff "$dir/$i/draw.hash" "$out/$i/draw.hash" 2> /dev/null | grep -m1 -E '^[<>]' | cut -d' ' -f2)
+    f=${f:-1}
+    s+=" (first differing present $f)"
+    w=$((f > 5 ? f - 5 : 1))-$((f + 5))
+    case $i in
+      d_*) hint="$BIN/$DRAWRUN_BIN --window $w $out/$i/draw.drawlog.xz demo ${i#d_}" ;;
+      s_*) hint="$BIN/$SESSION_BIN $SESSION_SRC/${i#s_} --out $out/$i --port-drawlog --draw-window $w" ;;
+      p_*) hint="$BIN/$SESSION_BIN $PILOT_SRC/${i#p_} --out $out/$i --port-drawlog --draw-window $w" ;;
+    esac
+  fi
+  if [[ -n $s ]]; then echo "$i$s"; [[ -n ${hint:-} ]] && echo "  rerun (same for DIR with the reference build): TH08_DIR=… $hint"; nd=$((nd + 1)); else echo "$i identical"; fi
+  hint=
+done < <(awk -v r="${ONLY:-.}" 'NR == FNR {k[$1] = 1; next} $1 ~ r && $1 in k' <(all_items) "$dir/digests.txt")
+save_times "$out"
+ne=0
+while read -r i; do
+  ref=$(awk -v r="${i#n_}" '$1 == r {print $3}' "$dir/digests.txt")
+  got=$(awk '$1 == "trace" {print $2}' "$out/$i/digest" 2> /dev/null)
+  [[ -n $ref && $ref == "$got" ]] || { echo "$i emit-off trace DIFFERS"; ne=$((ne + 1)); }
+done < <(all_items | grep -E '^n_' | grep -E "${ONLY:-.}")
+echo "emit-off items differing: $ne"
+# Prefix items: f_<session> trace must be a non-empty prefix of the session's reference trace.
+while read -r i; do
+  r=$dir/s_${i#f_}/trace.txt g=$out/$i/trace.txt
+  [[ -s $g ]] && cmp -s -n "$(stat -c%s "$g")" "$g" "$r" && echo "$i prefix identical ($(wc -l < "$g") rows)" ||
+    { echo "$i prefix trace DIFFERS ($(LC_ALL=C cmp "$r" "$g" 2>&1 | head -1 | sed 's/.*, //'))"; ne=$((ne + 1)); }
+done < <(all_items | grep -E '^f_' | grep -E "${ONLY:-.}")
+nd=$((nd + ne))
+echo "items differing: $nd${FAST:+ (FAST: traces only)}${SCOPE:+ (SCOPE=$SCOPE: $(all_items | wc -l) items)}; total $((SECONDS - t0)) s"
+[[ $nd == 0 && $fail == 0 ]] || exit 1
