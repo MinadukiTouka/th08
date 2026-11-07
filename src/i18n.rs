@@ -416,16 +416,30 @@ fn cjk_font(_: Option<&str>) -> Option<egui::FontData> {
 
 // `font` = the `font` setting, tried before the system font paths.
 pub fn install_fonts(ctx: &egui::Context, font: Option<&str>) {
-    let Some(data) = cjk_font(font) else {
-        log::warn!("no CJK font found (set TH08_FONT); Japanese launcher text shows as boxes");
-        return;
-    };
     let mut fonts = egui::FontDefinitions::default();
-    fonts
-        .font_data
-        .insert("cjk".into(), std::sync::Arc::new(data));
+    // A Noto Sans CJK subset (OFL) built from the launcher tables: every launcher / port-menu string is in it.
+    // Android's system CJK faces are TTC collections that egui cannot parse, so this is the working fallback there.
+    fonts.font_data.insert(
+        "cjk_bundled".into(),
+        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+            "../i18n/fonts/NotoSansJP-launcher.otf"
+        ))),
+    );
+    let system = cjk_font(font);
+    if system.is_none() {
+        log::warn!("no system CJK font found; the bundled subset covers the launcher texts");
+    }
+    if let Some(data) = system {
+        fonts
+            .font_data
+            .insert("cjk".into(), std::sync::Arc::new(data));
+    }
     for fam in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
-        fonts.families.entry(fam).or_default().push("cjk".into());
+        let list = fonts.families.entry(fam).or_default();
+        if fonts.font_data.contains_key("cjk") {
+            list.push("cjk".into());
+        }
+        list.push("cjk_bundled".into());
     }
     ctx.set_fonts(fonts);
 }
