@@ -1,123 +1,62 @@
-# th08: Touhou 8 rebuilt from scratch in Rust
+# 东方永夜抄 Android 移植（TH08 / Imperishable Night 1.00d）
 
-[![Check](https://github.com/kauri-off/th08-rs/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/kauri-off/th08-rs/actions/workflows/check.yml)
+非官方、非盈利的 Android 移植，基于 [kauri-off/th08-rs](https://github.com/kauri-off/th08-rs)
+（Rust 净室重写，GPL-3.0）二次开发。包名 **`com.zun.th08`**，只读取你自己合法持有的
+`th08.dat` / `thbgm.dat`，仓库与公开 APK 均不包含任何游戏数据。
 
-[Русский](README.ru.md) · [日本語](README.ja.md)
+## 特性
 
-This is an unofficial fan reimplementation of 東方永夜抄 ~ Imperishable Night (Team Shanghai Alice, 2004), written in
-Rust. It is not affiliated with Team Shanghai Alice and contains no game data. To play it you need your own copy of
-the game: the port reads `th08.dat` and `thbgm.dat` from it.
+- **触控（TH07 风格）**：任意位置拖动移动（模拟量位移，方向跟手、斜向不减速）、按住即射击
+  （松手后 200 ms 尾）、第二根手指低速、单侧黑边放 B、标题/暂停/菜单由手势操作
+- **单一 Esc 按钮**：左上角（默认）短按 = 键盘 Esc，长按 0.6 秒 = 移植菜单（触控布局、判定框等）
+- **惯用手切换**：右手（Esc 左上 / B 右侧黑边）或左手（Esc 右上 / B 左侧黑边）
+- **中文界面**：启动器与设置界面简体中文（复用原俄语槽位；游戏内文本保持原版/翻译包）
+- **60 fps 固定节奏**：在 90 Hz / 120 Hz 屏上请求并锁定 60 Hz
+- 图标取自原版 `th08.exe`；存档、回放、音乐室均已验证
 
-## Play it
+## 安装
 
-1. **Download** from the [releases page](https://github.com/kauri-off/th08-rs/releases): the `.exe` for Windows, the
-   `.AppImage` for Linux (`chmod +x`, then run), the `.apk` for Android. No install needed in the
-   [browser](https://kauri-off.github.io/th08-rs/).
-2. **Take from your own copy of the game** `th08.dat` and `thbgm.dat` (or `th08.pak` / `thbgm.pak` if you have
-   them). The port contains no game data: you must own Touhou 8.
-3. **Put them where the port looks:**
-   - Windows / Linux: nothing to copy; pick your game folder in the launcher on the first start.
-   - Android: in the launcher, tap **Import game files** and pick `th08.dat` and `thbgm.dat`; the app converts them
-     into its own storage (0.1.2 and newer).
-4. **Saves, replays and `port.cfg`** live in `%APPDATA%\th08\` (Windows), `~/.config/th08/` (Linux) or the app's
-   private storage (Android: uninstalling deletes them).
-5. **Translations:** the **Translations** panel in the launcher downloads one from Touhou Patch Center and builds the
-   pack on your device from your game data; then choose it in **Game text language**.
+1. 自备正版《东方永夜抄》1.00d，确认有 `th08.dat` 与 `thbgm.dat`
+2. 安装 APK（Android 8.0+，arm64-v8a）
+3. 打开启动器 → **导入游戏文件**，选中两个文件（或使用内置数据的自用构建，**不得公开分发**）
+4. 语言可在启动器里切到「中文」
 
-Android builds come in three channels: `release` (`com.zun.th08`) is the one on GitHub; `dev` and `debug` are local
-builds. Details, exact paths and controls: [docs/PLAYING.md](docs/PLAYING.md).
+公开 Release 的 APK 不含游戏数据；请勿在任何地方上传、共享原版数据文件。
 
-Updates: the launcher says when a newer release is out (once a day at most, can be turned off). On Android,
-[Obtainium](https://github.com/ImranR98/Obtainium) can track the GitHub releases; the Linux AppImage updates itself
-with [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate).
+## 构建
 
-## What I set out to do
+- Windows 宿主：见 [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md)（JDK 17、Android SDK 36、NDK r27b、
+  Rust 1.98 + `aarch64-linux-android`；Gradle 9.8.2）
+- 版本：`1.0.0`
 
-I wanted a port that is not just similar to the original but identical to it. The test is strict: give it the same
-inputs, and it must play out the same game, frame by frame and random-number call by random-number call. If it does,
-any replay recorded in the original game also plays in the port.
+## 已验证设备
 
-I also wanted the port written cleanly. Nobody writing the Rust code was allowed to look at the original executable.
+| 设备 | 系统 | 结果 |
+| --- | --- | --- |
+| OnePlus PJE110 | Android 16，120 Hz 面板 | 60 Hz 锁定、触控/存档/回放正常 |
+| 荣耀畅玩50 JDY-AN00 | Android 14 | 60 fps、Stage 1 + Boss、续关、回放正常 |
 
-## How it was done
+## 免责声明 / Disclaimer / 免責事項
 
-The work was split into two rooms, the classic clean-room method.
+**中文**：本项目为非官方、非盈利的技术研究项目，与上海爱丽丝幻乐团及 ZUN 无任何关联。
+《东方永夜抄 ～ Imperishable Night.》的著作权归上海爱丽丝幻乐团及 ZUN 所有。
+本项目不包含任何原版游戏数据；使用者必须合法持有原作，仅在个人、非商业环境中使用；
+不得以任何形式分发原版游戏数据。
 
-- **The dirty room** studied `th08.exe` with Ghidra and with a runtime probe: a proxy `d3d8.dll` that logs every draw
-  call, every RNG call and the game state, frame by frame. Its output was not code. It was 17 written specifications
-  (`specs/`, about 10,000 lines) of prose, tables, structure layouts, constants and short pseudocode.
-- **The clean room** wrote the Rust code from those specifications alone. Where the spec was not enough, the
-  implementer did not guess. It wrote down the question, sent it back to the dirty room, and the answer went into the
-  spec first.
+**English**: This is an unofficial, non-commercial fan project, not affiliated with Team Shanghai
+Alice or ZUN. Touhou 8 and all game assets belong to Team Shanghai Alice. This repository and its
+public APKs contain no game data: you must own a legitimate copy and use it for personal,
+non-commercial purposes only. Never redistribute the original data files.
 
-Nearly all of the work in both rooms was done by AI agents (Claude). My part was directing: splitting the work into
-small tasks, keeping the two rooms apart, deciding what counts as correct, and checking the results. It took about
-two and a half weeks (from 2026-10-16), roughly 190 implementation tasks and 70 rounds of reverse-engineering
-questions.
+**日本語**：本プロジェクトは非公式・非営利の技術研究プロジェクトであり、上海アリス幻楽団および
+ZUN とは一切関係ありません。『東方永夜抄 ～ Imperishable Night.』の著作権は上海アリス幻楽団に
+帰属します。本リポジトリと公開 APK にはゲームデータを含みません。正規品を所有する個人が
+非営利で利用する場合に限ります。ゲームデータの再配布は禁止です。
 
-## How "identical" was checked
+## 许可与致谢
 
-The original was run under Wine, and the port was run with the same input. Their per-frame traces of game state and
-their draw logs were then compared:
-
-- the game's own demo plays;
-- my own recorded play sessions, from the first stage to the end;
-- replays from the community. I collected about 13,000 `.rpy` files and played a sample of 1,010 through
-  both programs.
-
-One rule mattered more than any other: **a trace may show where the port differs, but it never says how the game
-works.** Only the specification does. When a trace and the port disagreed and the spec could not explain it, that
-became a question for the dirty room, never a patch that just made the numbers match.
-
-## What came out
-
-- **Game logic is bit-exact.** All 1,010 community replays and all recorded sessions match the original, including
-  every frame, every RNG call, score, items and deaths.
-- **Drawing matches visually.** Every remaining draw difference has been tracked down to a known, accepted cause, such
-  as sub-pixel floating-point rounding or the frame on which a loader finishes.
-- **The whole game is there:** all stages including Extra, all 12 shot types, bombs and Last Spells, spell cards,
-  dialogue, the night clock, menus, options, replays, `score.dat`, endings, the music room and BGM.
-- **It runs** natively on Windows, Linux and Android, and in the browser through WebAssembly with WebGPU or WebGL2.
-
-## Where it is now
-
-The port is complete. I am now rewriting it into idiomatic Rust:
-
-- the global state becomes one cloneable `World`;
-- drawing becomes a command list;
-- the core is cut off from the window, sound and file system.
-
-Behaviour is frozen during the rewrite. After every step the port is checked against itself and against the replay
-set. The Android build, with a touch overlay you can rearrange, is out; the mobile web build comes next.
-
-## Building it
-
-Prebuilt packages: see [Play it](#play-it). To build it yourself, you need stable Rust:
-
-```sh
-cargo run --release -- "/path/to/TH08 - Imperishable Night"
-```
-
-The controls are the original's: arrow keys, `Z` shoot, `X` bomb, `Shift` focus, `Esc` pause. Run `th08 --help` to
-see every setting. Packages (AppImage, Windows exe or installer, Android APK, web) are built with
-`cargo xtask dist --target <linux-appimage|windows-exe|windows-nsis|android-apk|web>`; `cargo xtask dist --help` lists
-the options; channels, versions and CI signing are in [CONTRIBUTING.md](CONTRIBUTING.md#packaging-and-versions).
-
-## Repository layout
-
-| Path | Contents |
-|---|---|
-| `specs/` | the specifications: the only source of truth for behaviour |
-| `src/` | the app: game window, launcher, settings, platform (package `th08`, binary `th08`) |
-| `crates/` | `th08-formats` (file formats), `th08-core` (game logic), `th08-render` (wgpu), `th08-audio` (cpal, MIDI), `th08-tools` (trace / draw-log tools, bins in `src/bin/`) |
-| `re/` | reverse-engineering tools: format dumpers, Ghidra scripts, the runtime probe, the session recorder ([index](re/README.md)) |
-| `docs/` | status, decisions, the architecture of the rewrite ([index](docs/README.md)) |
-
-| `web/`, `packaging/`, `xtask/` | the browser front end, packaging files and `cargo xtask dist` |
-
-How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-GPL-3.0-or-later (see `LICENSE`). It covers only the code and documents in this repository. Touhou Project and all
-game assets belong to Team Shanghai Alice.
+- 代码：**GPL-3.0-or-later**（继承上游）；修改后的源码以本仓库形式提供
+- 上游：`kauri-off/th08-rs`（净室重写与 Android 层）；触控方案参考 `some100/th07` 的
+  reallyportable 分支（TH07 移植）
+- 翻译：Touhou Patch Center（thpatch.net）及其贡献者，CC BY-SA 4.0
+- 游戏文本/素材：Team Shanghai Alice / ZUN

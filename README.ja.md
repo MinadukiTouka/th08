@@ -1,3 +1,5 @@
+> 本文件为上游 th08-rs 的 README，包名（org.th08.port）等信息已过时；请以 README.md 为准。
+
 # th08: 東方永夜抄を Rust でゼロから作り直す
 
 [![Check](https://github.com/kauri-off/th08-rs/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/kauri-off/th08-rs/actions/workflows/check.yml)

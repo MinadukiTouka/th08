@@ -1,28 +1,24 @@
-<!-- Release notes template: the release workflow publishes it above the generated commit list. Fill in the
-highlights afterwards with `gh release edit vX.Y.Z --notes-file …`. -->
+# TH08 Android 移植 v1.0.0
 
-## Highlights
+东方永夜抄 1.00d 的 Android 移植（非官方，GPL-3.0，不含游戏数据）。
 
-See the changes listed below.
+## 下载
 
-## Install
+- `th08-1.0.0-android-apk.apk`（约 20 MB，**不含游戏数据**）
+- `SHA256SUMS`
 
-The port contains no game data: you need your own copy of Touhou 8 ~ Imperishable Night (`th08.dat`, `thbgm.dat`).
+## 安装
 
-| Platform | File |
-|---|---|
-| Windows 10 / 11 (x64) | `th08-<version>-windows-nsis.exe`: installer (recommended), per-user, no admin |
-| Windows 10 / 11 (x64) | `th08-<version>-windows-exe.exe`: portable, run it from any folder |
-| Linux (x86-64, glibc 2.35+) | `th08-<version>-linux-appimage.AppImage`: `chmod +x`, then run; updates itself with AppImageUpdate or an AppImage manager (the `.zsync` is for them) |
-| Android 8.0+ (arm64) | `th08-<version>-android-apk.apk`: installs as `com.zun.th08`, updates the previous release |
+1. 自备正版 1.00d 的 `th08.dat` 与 `thbgm.dat`
+2. 安装 APK，打开启动器 → 导入游戏文件
+3. 语言可切到「中文」
 
-- Windows / Linux: pick your game folder in the launcher on the first start.
-- Android: in the launcher, tap **Import game files** and pick `th08.dat` and `thbgm.dat`.
+## 本版内容
 
-Saves, translations and the rest: [docs/PLAYING.md](https://github.com/kauri-off/th08-rs/blob/master/docs/PLAYING.md).
+- TH07 风格触控：拖动移动、按住射击、第二指低速、单侧黑边 Bomb、单 Esc 按钮（长按 = 移植菜单）
+- 惯用手切换（右手 / 左手）
+- 中文启动器与设置界面
+- 60 fps 锁定；图标取自原版 th08.exe
+- 已在 OnePlus PJE110（Android 16）与荣耀 JDY-AN00（Android 14）验证
 
-## Known issues
-
-- Dialogue and spell-card text uses a system Japanese font, not the original's MS Gothic pixels.
-- Uninstalling the Android app deletes its saves and replays.
-- The browser build cannot download translations.
+请勿分发游戏数据文件。详见 README 的免责声明。
