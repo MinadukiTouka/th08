@@ -197,13 +197,13 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             signingConfig = signingConfigs.getByName("th08")
             if (appChannel != "release") applicationIdSuffix = ".$appChannel"
-            resValue("string", "app_name", if (appChannel == "release") "th08" else "th08 $appChannel")
+            resValue("string", "app_name", if (appChannel == "release") "東方永夜抄 ～ Imperishable Night." else "東方永夜抄 ～ Imperishable Night. $appChannel")
             buildConfigField("String", "CHANNEL", "\"$appChannel\"")
         }
         debug {
             applicationIdSuffix = ".debug"
             signingConfig = signingConfigs.getByName("th08")
-            resValue("string", "app_name", "th08 debug")
+            resValue("string", "app_name", "東方永夜抄 ～ Imperishable Night. debug")
             buildConfigField("String", "CHANNEL", "\"debug\"")
         }
     }

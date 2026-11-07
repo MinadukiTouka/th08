@@ -92,4 +92,5 @@
   <string name="update_notes">What is new</string>
   <string name="update_download">Download</string>
   <string name="grant_files_access">Allow access to Download</string>
+  <string name="repo_url" translatable="false">https://github.com/MinadukiTouka/th08</string>
 </resources>
