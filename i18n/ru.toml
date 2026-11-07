@@ -102,7 +102,7 @@ tr_done = "{lang} 已安装：已翻译 {pct}%"
 tr_removed = "已移除 {lang}"
 tr_failed = "{lang}：{err}"
 tr_needs_data = "请先选择游戏文件夹：导入需要读取 th08.dat 或 th08.pak"
-tr_attribution = "翻译：Touhou Patch Center（thpatch.net）及其贡献者，CC BY-SA 4.0；游戏文本：Team Shanghai Alice。语言包在本设备上构建于 {dir}，仅供个人使用。"
+tr_attribution = "翻译：Touhou Patch Center（thpatch.net）及其贡献者，CC BY-SA 4.0；游戏文本：Team Shanghai Alice。语言包在本设备的 {dir} 中构建，仅供个人使用。"
 tr_site_storage = "此浏览器中的网站存储"
 [group]
 language = "语言"
@@ -192,7 +192,7 @@ nearest = "像素化"
 [entry.integer_scale]
 label = "整数倍缩放"
 summary = "仅按 640×480 的整数倍缩放"
-help = "将画面缩放到能容纳的最大 640x480 整数倍"
+help = "将画面缩放到可容纳的最大 640x480 整数倍"
 
 [entry.volume_master]
 label = "总音量"
@@ -307,7 +307,7 @@ toggle = "切换"
 [entry.touch_autofire]
 label = "自动射击"
 summary = "无需按键即可射击"
-help = "启动时自动射击（仅限游戏内；AUTO 按钮可切换）"
+help = "启动时自动射击（仅限游戏内；「自动」按钮可切换）"
 
 [entry.touch_opacity]
 label = "按钮不透明度，%"
@@ -341,7 +341,7 @@ help = "对话文本使用的日文字体（原生版本）"
 [entry.pack]
 label = "外观包"
 summary = "翻译包的文件夹或 zip"
-help = "外观包：文件夹或 .zip，或 <游戏文件夹>/packs 或 <设置文件夹>/packs 中的包 ID；留空 = 游戏文本语言对应的包（仅文本、字体和图片）"
+help = "外观包：文件夹或 .zip，也可以是 <游戏文件夹>/packs 或 <设置文件夹>/packs 中的包 ID；留空 = 游戏文本语言对应的包（仅文本、字体和图片）"
 
 [entry.pack.words]
 "" = "按游戏文本语言"
