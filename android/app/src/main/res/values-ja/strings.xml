@@ -20,7 +20,7 @@
   <string name="data_imported_no_music">音楽なしでインポート済み: thbgm.dat もインポートしてください</string>
   <string name="data_imported_detail">ゲームファイルは確認・変換済みです（th08.pak、thbgm.pak）。アプリの専用ストレージに保存されています:\n%s\n\n選んだ元のファイルは変更されておらず、削除してもかまいません。</string>
   <string name="data_missing">見つかりません: 「ゲームファイルをインポート」をタップ</string>
-  <string name="data_missing_detail">「ゲームファイルをインポート」をタップし、東方永夜抄のフォルダの th08.dat と thbgm.dat（または th08.pak と thbgm.pak）を選んでください。ダウンロード、USB ドライブ、クラウドストレージなど、どこにあってもかまいません。2 つのファイルは同時に選択します（最初のファイルを長押し）。アプリはファイルを確認して独自の形式に変換し、専用ストレージに保存します。</string>
+  <string name="data_missing_detail">端末の Download/th08 フォルダに th08.dat と thbgm.dat（または th08.pak と thbgm.pak）を置き、ダウンロードへのアクセスを許可してください。代わりに「ゲームファイルをインポート」も使えます。</string>
   <string name="import_files">ゲームファイルをインポート</string>
   <string name="import_again">再インポート</string>
   <string name="import_remove">ゲームファイルを削除</string>
@@ -90,4 +90,5 @@
   <string name="update_available">バージョン %1$s が公開されています</string>
   <string name="update_notes">更新内容</string>
   <string name="update_download">ダウンロード</string>
+  <string name="grant_files_access">ダウンロードへのアクセスを許可</string>
 </resources>

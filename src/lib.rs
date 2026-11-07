@@ -78,6 +78,8 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
         return;
     }
     let imported = data.as_ref().map(|d| d.join("game"));
+    // Manual drop-in folder on the shared storage (needs All files access): Download/th08.
+    let manual = std::path::Path::new("/storage/emulated/0/Download/th08");
     let dirs = settings::PlatformDirs {
         config: data.clone(),
         save: data,
@@ -86,7 +88,11 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
     let mut s = settings::Settings::game_environment(dirs);
     launch_once(&mut s);
     let legacy = app.external_data_path().map(|e| e.join("game"));
-    let game = match imported.iter().find(|d| launcher::is_game_dir(d)) {
+    let game = if launcher::is_game_dir(manual) {
+        log::info!("game folder {} (manual Download/th08)", manual.display());
+        Some(manual.to_path_buf())
+    } else {
+        match imported.iter().find(|d| launcher::is_game_dir(d)) {
         Some(d) => Some(d.clone()),
         None => {
             if let Some(apk) = sources::ApkAssetSource::new(app.asset_manager()) {
@@ -97,6 +103,7 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
                 std::process::exit(0);
             }
             legacy.filter(|d| launcher::is_game_dir(d)).or(imported)
+        }
         }
     };
     match game {

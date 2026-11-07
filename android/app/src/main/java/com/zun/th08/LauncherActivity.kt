@@ -4,8 +4,12 @@
 // Texts follow the `language` row (docs/arch/I18N.md §3.3).
 package com.zun.th08
 
+import android.Manifest
 import android.app.ActivityManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Environment
+import android.provider.Settings
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -132,14 +136,33 @@ class LauncherActivity : ComponentActivity(), LauncherActions {
     private var pickFile: (Setting) -> Unit = {}
     private var openGamePicker: () -> Unit = {}
 
-    // As android_main: imported files, then bundled assets, then the old <external files>/game (adb push target).
+    // As android_main: a hand-filled Download/th08 first, then imported files, bundled assets, the old
+    // <external files>/game (adb push target).
     private fun checkData(): GameData {
+        val manual = manualDir()
+        if (hasAllFilesAccess(this) && hasFile(manual, "th08.dat", "th08.pak")) {
+            return GameData.Folder(manual)
+        }
         val game = importDir(this)
         if (hasFile(game, "th08.pak", "th08.dat")) return GameData.Imported(game, hasFile(game, "thbgm.pak", "thbgm.dat"))
         if (assets.list("")?.any { it == "th08.pak" || it == "th08.dat" } == true) return GameData.Bundled
         val old = getExternalFilesDir(null)?.let { File(it, "game") }
         if (old != null && hasFile(old, "th08.pak", "th08.dat")) return GameData.Folder(old)
         return GameData.Missing
+    }
+
+    // The hand-filled shared-storage folder (Download/th08).
+    private fun manualDir(): File =
+        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "th08")
+
+    // "All files access" on Android 11+; the legacy read permission below.
+    override fun grantStorage() {
+        val i = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName"))
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+        }
+        runCatching { startActivity(i) }
     }
 
     // A picked document copied to filesDir/picked/<name>, a path the native game can open.
@@ -393,3 +416,11 @@ fun Th08Theme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> 
     }
     MaterialTheme(colorScheme = colors, content = content)
 }
+
+// Download/th08 is outside the app sandbox: All files access on Android 11+, the legacy read permission below.
+fun hasAllFilesAccess(ctx: android.content.Context): Boolean =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Environment.isExternalStorageManager()
+    } else {
+        ctx.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    }

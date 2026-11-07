@@ -21,7 +21,7 @@
   <string name="data_imported_no_music">Imported without music: import thbgm.dat too</string>
   <string name="data_imported_detail">Your game files were checked and converted (th08.pak, thbgm.pak). They are kept in the app’s private storage:\n%s\n\nThe files you picked are not changed and can be deleted.</string>
   <string name="data_missing">Missing: tap Import game files</string>
-  <string name="data_missing_detail">Tap Import game files and pick th08.dat and thbgm.dat (or th08.pak and thbgm.pak) from your Imperishable Night folder, wherever they are: Downloads, a USB drive, cloud storage. Select both files at once (long-press the first one). The app checks them, converts them into its own format and keeps them in its private storage.</string>
+  <string name="data_missing_detail">Put th08.dat and thbgm.dat (or th08.pak and thbgm.pak) in the Download/th08 folder on this device, then allow access to downloads. Or tap Import game files instead.</string>
   <string name="import_files">Import game files</string>
   <string name="import_again">Import again</string>
   <string name="import_remove">Remove game files</string>
@@ -91,4 +91,5 @@
   <string name="update_available">Version %1$s is available</string>
   <string name="update_notes">What is new</string>
   <string name="update_download">Download</string>
+  <string name="grant_files_access">Allow access to Download</string>
 </resources>

@@ -107,7 +107,8 @@ class Setting(val e: Entry, initial: String) {
     fun ok(): Boolean = (e.kind as? Kind.IntRange)?.let { intOk(it, value) } ?: true
 }
 
-// First found wins, as in lib.rs `android_main`: imported files, bundled assets, the old external folder.
+// First found wins, as in lib.rs `android_main`: Download/th08, imported files, bundled assets, the old external
+// folder.
 sealed interface GameData {
     data class Imported(val dir: File, val music: Boolean) : GameData
     data object Bundled : GameData
@@ -133,6 +134,7 @@ interface LauncherActions {
     fun importGame() {}
     fun cancelImport() {}
     fun removeGame() {}
+    fun grantStorage() {}
     fun shareError() {}
     fun dismissError() {}
     fun openUrl(url: String) {}

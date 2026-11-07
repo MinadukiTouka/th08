@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <!-- Translation downloads from srv.thpatch.net (settings screen, Packs.kt). -->
   <uses-permission android:name="android.permission.INTERNET"/>
+  <!-- The hand-filled game folder Download/th08 lives outside the app sandbox. -->
+  <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
   <application android:label="@string/app_name" android:icon="@mipmap/ic_launcher"
       android:extractNativeLibs="false" android:allowBackup="true" android:hasFragileUserData="true"
       android:fullBackupContent="@xml/backup_rules" android:dataExtractionRules="@xml/data_extraction_rules">

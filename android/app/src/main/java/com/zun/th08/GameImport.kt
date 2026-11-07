@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
 import org.json.JSONObject
@@ -199,6 +200,9 @@ fun ImportRows(d: GameData, act: LauncherActions) {
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = act::importGame) {
             Text(str(if (imported && d.music) R.string.import_again else R.string.import_files))
+        }
+        if (!hasAllFilesAccess(LocalContext.current)) {
+            OutlinedButton(onClick = act::grantStorage) { Text(str(R.string.grant_files_access)) }
         }
         if (imported) OutlinedButton(onClick = { confirm = true }) { Text(str(R.string.import_remove)) }
     }

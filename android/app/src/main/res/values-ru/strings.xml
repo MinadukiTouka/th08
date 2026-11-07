@@ -20,7 +20,7 @@
   <string name="data_imported_no_music">已导入，但缺少音乐：请同时导入 thbgm.dat</string>
   <string name="data_imported_detail">你的游戏文件已通过检查并完成转换（th08.pak、thbgm.pak），保存在应用的私有存储中：\n%s\n\n你所选的文件不会被改动，可以删除。</string>
   <string name="data_missing">缺少文件：点按“导入游戏文件”</string>
-  <string name="data_missing_detail">点按“导入游戏文件”，从你的 Imperishable Night 文件夹中选择 th08.dat 和 thbgm.dat（或 th08.pak 和 thbgm.pak）。文件在哪里都可以：下载文件夹、USB 驱动器、云存储。请一次性选中这两个文件（长按第一个文件）。应用会检查这些文件，将其转换成自己的格式，并保存在私有存储中。</string>
+  <string name="data_missing_detail">把 th08.dat 与 thbgm.dat（或 th08.pak 与 thbgm.pak）放到手机内部存储的 Download/th08 文件夹，然后允许应用访问下载文件夹。也可以点按“导入游戏文件”。</string>
   <string name="import_files">导入游戏文件</string>
   <string name="import_again">重新导入</string>
   <string name="import_remove">移除游戏文件</string>
@@ -90,4 +90,5 @@
   <string name="update_available">版本 %1$s 已可用</string>
   <string name="update_notes">新内容</string>
   <string name="update_download">下载</string>
+  <string name="grant_files_access">允许访问 Download</string>
 </resources>
