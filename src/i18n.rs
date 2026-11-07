@@ -38,6 +38,8 @@ impl Lang {
         match primary.as_str() {
             "ja" => Lang::Ja,
             "ru" => Lang::Ru,
+            // The fork's Chinese texts live in the `ru` table (the Russian slot was repurposed).
+            "zh" => Lang::Ru,
             _ => Lang::En,
         }
     }

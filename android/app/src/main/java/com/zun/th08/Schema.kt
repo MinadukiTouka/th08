@@ -19,7 +19,13 @@ val LANGS = listOf("ja", "en", "ru")
 
 // The `language` value resolved: "auto" (or unknown) = the device locale's language if ja / ru, else en.
 fun resolveLang(pref: String, device: Locale = Locale.getDefault()): String =
-    pref.takeIf { it in LANGS } ?: device.language.takeIf { it == "ja" || it == "ru" } ?: "en"
+    pref.takeIf { it in LANGS } ?: when (device.language) {
+        "ja" -> "ja"
+        "ru" -> "ru"
+        // The fork's Chinese texts live in the `ru` slot.
+        "zh" -> "ru"
+        else -> "en"
+    }
 
 data class Group(val id: String, val titles: Map<String, String>) {
     fun title(lang: String) = titles[lang] ?: titles.getValue("en")

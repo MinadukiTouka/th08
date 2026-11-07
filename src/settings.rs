@@ -945,7 +945,7 @@ pub const ENTRIES: &[Entry] = &[
         key: "touch_move",
         env: "TH08_TOUCH_MOVE",
         kind: Kind::Enum(&["drag", "stick"]),
-        default: "stick",
+        default: "drag",
         group: Group::Touch,
         label: "Movement",
         summary: "How your finger moves the player",
