@@ -278,8 +278,8 @@ summary = "Esc 按钮与 B 判定区的位置"
 help = "右手：Esc 在左上，B 判定区在右侧黑边；左手：Esc 在右上，B 判定区在左侧黑边"
 
 [entry.touch_handed.words]
-right = "右手（Esc 左上，B 右黑边）"
-left = "左手（Esc 右上，B 左黑边）"
+right = "右手"
+left = "左手"
 
 [entry.touch_move]
 label = "Перемещение"

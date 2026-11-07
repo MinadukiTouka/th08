@@ -1205,11 +1205,11 @@
         "unit": "",
         "words": [
           {
-            "label": "右手（Esc 左上，B 右黑边）",
+            "label": "右手",
             "value": "right"
           },
           {
-            "label": "左手（Esc 右上，B 左黑边）",
+            "label": "左手",
             "value": "left"
           }
         ]
@@ -1218,11 +1218,11 @@
       "unit": "",
       "words": [
         {
-          "label": "Right-handed",
+          "label": "Right",
           "value": "right"
         },
         {
-          "label": "Left-handed",
+          "label": "Left",
           "value": "left"
         }
       ]

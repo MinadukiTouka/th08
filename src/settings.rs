@@ -974,7 +974,7 @@ pub const ENTRIES: &[Entry] = &[
         label: "Handedness",
         summary: "Side of the Esc button and the bomb bar",
         unit: "",
-        words: &[("right", "Right-handed"), ("left", "Left-handed")],
+        words: &[("right", "Right"), ("left", "Left")],
         audience: Audience::Player,
         platforms: Platforms::ALL,
         persist: true,
