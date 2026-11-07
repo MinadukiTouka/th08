@@ -1164,6 +1164,71 @@
     },
     {
       "audience": "player",
+      "default": "right",
+      "group": "touch",
+      "help": "right: Esc at the top left and the bomb bar on the right; left: Esc at the top right and the bomb bar on the left (for left-handed players)",
+      "ja": {
+        "help": "右利き: Esc は左上、ボム帯は右側。左利き: Esc は右上、ボム帯は左側",
+        "label": "利き手",
+        "summary": "Esc ボタンとボム帯の位置",
+        "unit": "",
+        "words": [
+          {
+            "label": "右利き",
+            "value": "right"
+          },
+          {
+            "label": "左利き",
+            "value": "left"
+          }
+        ]
+      },
+      "key": "touch_handed",
+      "kind": {
+        "choices": [
+          "right",
+          "left"
+        ],
+        "type": "enum"
+      },
+      "label": "Handedness",
+      "persist": true,
+      "platforms": [
+        "desktop",
+        "web",
+        "android"
+      ],
+      "ru": {
+        "help": "右手：Esc 在左上，B 判定区在右侧黑边；左手：Esc 在右上，B 判定区在左侧黑边",
+        "label": "惯用手",
+        "summary": "Esc 按钮与 B 判定区的位置",
+        "unit": "",
+        "words": [
+          {
+            "label": "右手（Esc 左上，B 右黑边）",
+            "value": "right"
+          },
+          {
+            "label": "左手（Esc 右上，B 左黑边）",
+            "value": "left"
+          }
+        ]
+      },
+      "summary": "Side of the Esc button and the bomb bar",
+      "unit": "",
+      "words": [
+        {
+          "label": "Right-handed",
+          "value": "right"
+        },
+        {
+          "label": "Left-handed",
+          "value": "left"
+        }
+      ]
+    },
+    {
+      "audience": "player",
       "default": "100",
       "group": "touch",
       "help": "drag sensitivity in percent (100 = the player follows the finger 1:1 on the game picture)",

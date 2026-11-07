@@ -966,6 +966,30 @@ pub const ENTRIES: &[Entry] = &[
         },
     },
     Entry {
+        key: "touch_handed",
+        env: "TH08_TOUCH_HANDED",
+        kind: Kind::Enum(&["right", "left"]),
+        default: "right",
+        group: Group::Touch,
+        label: "Handedness",
+        summary: "Side of the Esc button and the bomb bar",
+        unit: "",
+        words: &[("right", "Right-handed"), ("left", "Left-handed")],
+        audience: Audience::Player,
+        platforms: Platforms::ALL,
+        persist: true,
+        help: "right: Esc at the top left and the bomb bar on the right; left: Esc at the top right and the bomb bar on the left (for left-handed players)",
+        set: |s, v| {
+            use crate::platform::touch::Handed;
+            s.touch.handed = match v.trim() {
+                "right" => Handed::Right,
+                "left" => Handed::Left,
+                _ => return Err("expected right or left".into()),
+            };
+            Ok(())
+        },
+    },
+    Entry {
         key: "touch_sens",
         env: "TH08_TOUCH_SENS",
         kind: Kind::Int { min: 25, max: 400 },

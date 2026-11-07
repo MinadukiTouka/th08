@@ -272,6 +272,15 @@ auto = "自動"
 on = "オン"
 off = "オフ"
 
+[entry.touch_handed]
+label = "利き手"
+summary = "Esc ボタンとボム帯の位置"
+help = "右利き: Esc は左上、ボム帯は右側。左利き: Esc は右上、ボム帯は左側"
+
+[entry.touch_handed.words]
+right = "右利き"
+left = "左利き"
+
 [entry.touch_move]
 label = "移動方法"
 summary = "指で自機を動かす方法"

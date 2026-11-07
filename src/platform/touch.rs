@@ -293,6 +293,16 @@ pub enum TouchMode {
     Off,
 }
 
+// Which hand plays: mirrors the Esc button and the bomb bar.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Handed {
+    // Esc top left, bomb bar on the right.
+    #[default]
+    Right,
+    // Esc top right, bomb bar on the left.
+    Left,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Movement {
     // Relative drag: the player follows the finger's movement (the default: drag anywhere, as the TH07 port).
@@ -309,6 +319,8 @@ pub struct TouchConfig {
     // Dev: the desktop mouse acts as one finger (and shows the overlay).
     pub mouse: bool,
     pub movement: Movement,
+    // Esc / bomb bar side.
+    pub handed: Handed,
     // Drag: game pixels per window pixel scaled to the game picture (1.0 = the player follows the finger 1:1).
     pub sens: f32,
     // FOCUS button toggles instead of being held.
@@ -327,6 +339,7 @@ impl Default for TouchConfig {
             mouse: false,
             // TH07 touch scheme: relative drag anywhere, shoot while a finger is down.
             movement: Movement::Drag,
+            handed: Handed::Right,
             sens: 1.0,
             focus_toggle: false,
             autofire: false,
@@ -604,6 +617,12 @@ impl TouchSource {
             )
         } else {
             let r = c.w * self.ppm / 2.0;
+            // Left-handed: the single Esc control sits top right instead of top left.
+            let cx = if c.ctl == Ctl::Pause && self.cfg.handed == Handed::Left {
+                1.0 - c.x
+            } else {
+                c.x
+            };
             let inside = |v: f32, lo: f32, len: f32| {
                 if 2.0 * r >= len {
                     lo + len / 2.0
@@ -612,7 +631,7 @@ impl TouchSource {
                 }
             };
             (
-                [inside(x0 + c.x * w, x0, w), inside(y0 + c.y * h, y0, h)],
+                [inside(x0 + cx * w, x0, w), inside(y0 + c.y * h, y0, h)],
                 [r; 2],
             )
         };
@@ -969,13 +988,19 @@ impl TouchSource {
     }
 
     // Window px → game px (the blit's letterbox scale in the safe rect).
-    // The bomb zone of the fork's touch scheme: the right letterbox bar beside the picture only (the left bar is
-    // free for the Esc button and for dragging).
+    // The bomb zone of the fork's touch scheme: the letterbox bar on the side the player's hand is not on (right
+    // by default, left for left-handed players); the other bar is free for the Esc button and for dragging.
     fn bomb_zone(&self, p: [f32; 2]) -> bool {
         let scale = self.game_scale();
         let rw = SCREEN[0] * scale;
         let rx = self.origin[0] + (self.size[0] - rw) / 2.0;
-        rw + 1.0 < self.size[0] && p[0] > rx + rw
+        if rw + 1.0 >= self.size[0] {
+            return false;
+        }
+        match self.cfg.handed {
+            Handed::Right => p[0] > rx + rw,
+            Handed::Left => p[0] < rx,
+        }
     }
 
     fn game_scale(&self) -> f32 {
