@@ -65,6 +65,8 @@ pub fn register(
     ctx.w.input.game_prev = [0; crate::host::MAX_PLAYERS];
     let debug = play && ctx.w.game.rpy.as_ref().is_some_and(|r| r.debug != 0);
     let mut rt = ReplayState::new(play, ctx.w.game.stage % 9, debug);
+    // A fresh game (record or playback) starts without a substituted input word.
+    ctx.w.input.substituted = play;
     if !play || debug {
         rt.frame_hook(&mut ctx.w.rng);
     }
@@ -478,6 +480,7 @@ impl ReplayState {
         }
         i.game_prev = i.game;
         i.game[0] = i.held;
+        i.substituted = false;
         // Step 2: slow mode records nothing (Supervisor+0x1A4 bit 3 is never set in retail code).
         // The slow byte is +0x25 of the gameplay config copy `*(GM+4)`.
         if g.game_slow() != 0 {
@@ -535,6 +538,7 @@ impl ReplayState {
         self.cursor = next;
         i.game_prev = i.game;
         i.game[0] = w;
+        i.substituted = true;
         i.repeat = false;
         if i.game[0] == i.game_prev[0] {
             if self.repeat_ctr > 29 {

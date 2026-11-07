@@ -2,275 +2,275 @@
 # src/i18n.rs UI; `cargo test i18n` checks that every id is here and that none is stale.
 
 [ui]
-title = "th08 — порт Touhou 8"
-play = "Играть"
-reset = "Сбросить настройки"
-quit = "Выход"
-back = "Назад"
-developer = "Разработчик"
-developer_hint = "показать читы и инструменты (только на этот запуск, не сохраняются)"
-select_folder_first = "сначала выберите папку игры"
-fix_values = "исправьте отмеченные значения"
-dev_active = "Включены настройки разработчика: {list}"
-cheats_nosave = "Включены читы: {list}. Счёт и реплеи не сохраняются."
-game_folder = "Папка игры:"
-browse = "Обзор…"
-folder_hint = "папка с th08.dat или th08.pak"
-bundled_apk = "встроена в APK"
-bundled = "встроена"
-bundled_note = "Эта сборка использует свои встроенные файлы игры; выбранная здесь папка действует только на этот запуск."
-no_files = "нет файлов"
-dat_found = "файлы игры найдены"
-dat_missing = "нет файлов игры: в папке должен быть th08.dat или th08.pak, а для музыки — thbgm.dat или thbgm.pak"
-android_copy = "Скопируйте th08.dat и thbgm.dat (или th08.pak и thbgm.pak) из папки Touhou 8 в {dir}\nнапример, adb push th08.dat thbgm.dat {dir}/ — экран сам их обнаружит."
-waiting_touch = "Запуск игры…  коснитесь экрана, чтобы открыть настройки"
-waiting_shift = "Запуск игры…  удерживайте Shift, чтобы открыть настройки"
-loading = "Загрузка th08.dat…"
-start_failed = "Не удалось запустить игру"
-last_failed = "Прошлый запуск завершился ошибкой:"
-copy_report = "Скопировать отчёт"
-open_folder = "Открыть папку"
-dismiss = "Скрыть"
-update_available = "Доступна версия {version}"
-update_notes = "Что нового"
-update_download = "Скачать"
-save_failed = "Не удалось сохранить {name}: {err}"
-not_set = "(не задано)"
-changed = "изменено"
-set_by = "задано через {source}"
-saved = "сохранено"
-port_menu = "Меню порта"
-paused = "игра на паузе"
-resume = "Продолжить"
-key_back = "Кнопка «Назад»"
-controller = "Контроллер: {name}"
-no_controller = "нет"
-touch_edit = "Раскладка сенсорных кнопок"
-touch_hint = "Перетащите кнопку, чтобы её передвинуть; размер — щипком или ползунком"
-touch_landscape = "Горизонтальная раскладка"
-touch_portrait = "Вертикальная раскладка"
-touch_size = "Размер"
-touch_opacity = "Непрозрачность"
-touch_shown = "Показывать"
-touch_reset = "Сбросить раскладку"
-touch_move = "ДВИЖЕНИЕ"
-touch_shot = "ОГОНЬ"
-touch_bomb = "БОМБА"
-touch_focus = "ФОКУС"
-touch_pause = "ПАУЗА"
-touch_skip = "ПРОПУСК"
-touch_auto = "АВТО"
-touch_menu = "МЕНЮ"
-touch_ok = "ОК"
-touch_back = "НАЗАД"
-touch_next = "ДАЛЕЕ"
-replay_paused = "Пауза"
+title = "th08 — Touhou 8 移植版"
+play = "开始游戏"
+reset = "重置设置"
+quit = "退出"
+back = "返回"
+developer = "开发者"
+developer_hint = "显示作弊与工具（仅本次启动有效，不会保存）"
+select_folder_first = "请先选择游戏文件夹"
+fix_values = "请修正标红的值"
+dev_active = "已启用开发者设置：{list}"
+cheats_nosave = "已启用作弊：{list}。分数和回放不会保存。"
+game_folder = "游戏文件夹："
+browse = "浏览…"
+folder_hint = "包含 th08.dat 或 th08.pak 的文件夹"
+bundled_apk = "已内置于 APK"
+bundled = "已内置"
+bundled_note = "此版本使用内置的游戏文件；在此选择的文件夹仅对本次启动有效。"
+no_files = "没有文件"
+dat_found = "已找到游戏文件"
+dat_missing = "缺少游戏文件：文件夹中需要有 th08.dat 或 th08.pak，音乐还需要 thbgm.dat 或 thbgm.pak"
+android_copy = "请将 th08.dat 和 thbgm.dat（或 th08.pak 和 thbgm.pak）从 Touhou 8 文件夹复制到 {dir}\n例如：adb push th08.dat thbgm.dat {dir}/，该界面会自动检测到它们。"
+waiting_touch = "正在启动游戏…  触摸屏幕以打开设置"
+waiting_shift = "正在启动游戏…  按住 Shift 以打开设置"
+loading = "正在加载 th08.dat…"
+start_failed = "无法启动游戏"
+last_failed = "上次启动以错误结束："
+copy_report = "复制报告"
+open_folder = "打开文件夹"
+dismiss = "隐藏"
+update_available = "版本 {version} 已可用"
+update_notes = "更新内容"
+update_download = "下载"
+save_failed = "无法保存 {name}：{err}"
+not_set = "（未设置）"
+changed = "已更改"
+set_by = "由 {source} 设置"
+saved = "已保存"
+port_menu = "移植菜单"
+paused = "游戏已暂停"
+resume = "继续"
+key_back = "「返回」按钮"
+controller = "控制器：{name}"
+no_controller = "无"
+touch_edit = "触控按钮布局"
+touch_hint = "拖动按钮可移动位置；大小可用双指捏合或滑块调整"
+touch_landscape = "横屏布局"
+touch_portrait = "竖屏布局"
+touch_size = "大小"
+touch_opacity = "不透明度"
+touch_shown = "显示"
+touch_reset = "重置布局"
+touch_move = "移动"
+touch_shot = "射击"
+touch_bomb = "Bomb"
+touch_focus = "低速"
+touch_pause = "暂停"
+touch_skip = "跳过"
+touch_auto = "自动"
+touch_menu = "菜单"
+touch_ok = "确定"
+touch_back = "返回"
+touch_next = "下一步"
+replay_paused = "暂停"
 replay_rate = "{rate}×"
-cancel = "Отмена"
-save = "Сохранить"
+cancel = "取消"
+save = "保存"
 
-saves_title = "Сохранения"
-saves_hint = "Рекорды, реплеи и настройки игры в одном zip вместе с настройками порта; перед импортом текущие файлы сохраняются в zip."
-saves_export = "Экспорт сохранений…"
-saves_import = "Импорт сохранений…"
-saves_port_cfg = "Импортировать и настройки"
-saves_port_cfg_hint = "строки port.cfg из zip; по умолчанию выключено: пути к папкам в нём могут не подойти этому устройству"
-saves_exported = "Файлов сохранено: {n}, в {path}"
-saves_imported = "Файлов импортировано: {n}"
-saves_imported_backup = "Файлов импортировано: {n}; прежние файлы — в {backup}"
-saves_export_failed = "Экспорт не удался: {err}"
-saves_import_failed = "Импорт не удался, ничего не изменено: {err}"
+saves_title = "存档"
+saves_hint = "将分数、回放和游戏设置与移植设置一起打包为一个 zip；导入前，当前文件会先保存到 zip 中。"
+saves_export = "导出存档…"
+saves_import = "导入存档…"
+saves_port_cfg = "同时导入设置"
+saves_port_cfg_hint = "zip 中的 port.cfg 行；默认关闭：其中的文件夹路径可能不适用于此设备"
+saves_exported = "已保存 {n} 个文件，位于 {path}"
+saves_imported = "已导入 {n} 个文件"
+saves_imported_backup = "已导入 {n} 个文件；原文件位于 {backup}"
+saves_export_failed = "导出失败：{err}"
+saves_import_failed = "导入失败，未做任何更改：{err}"
 
-tr_title = "Переводы"
-tr_installed = "Установлены:"
-tr_none = "переводов не установлено: игра показывает оригинальный японский текст"
-tr_missing = "{code} (не установлен: оригинальный текст)"
-tr_server = "Доступны на Touhou Patch Center:"
-tr_load = "Показать языки"
-tr_loading = "Загрузка списка языков…"
-tr_filter = "фильтр"
-tr_install = "Скачать"
-tr_update = "Обновить"
-tr_remove = "Удалить"
-tr_up_to_date = "актуален"
-tr_translated = "переведено {pct}%"
-tr_estimate = "около {pct}% текстов"
-tr_on_top = "на основе {base}"
-tr_working = "{lang}: {done} / {total} файлов"
-tr_building = "{lang}: сборка пакета…"
-tr_done = "{lang} установлен: переведено {pct}%"
-tr_removed = "{lang} удалён"
-tr_failed = "{lang}: {err}"
-tr_needs_data = "сначала выберите папку игры: импорт читает th08.dat или th08.pak"
-tr_attribution = "Переводы: Touhou Patch Center (thpatch.net) и его участники, CC BY-SA 4.0; текст игры — Team Shanghai Alice. Пакеты собираются на этом устройстве в {dir}, для личного использования."
-tr_site_storage = "хранилище сайта в этом браузере"
+tr_title = "翻译"
+tr_installed = "已安装："
+tr_none = "未安装翻译：游戏将显示原始日文文本"
+tr_missing = "{code}（未安装：原始文本）"
+tr_server = "可从 Touhou Patch Center 获取："
+tr_load = "显示语言"
+tr_loading = "正在加载语言列表…"
+tr_filter = "筛选"
+tr_install = "下载"
+tr_update = "更新"
+tr_remove = "移除"
+tr_up_to_date = "已是最新"
+tr_translated = "已翻译 {pct}%"
+tr_estimate = "约占全部文本的 {pct}%"
+tr_on_top = "基于 {base}"
+tr_working = "{lang}：{done} / {total} 个文件"
+tr_building = "{lang}：正在构建语言包…"
+tr_done = "{lang} 已安装：已翻译 {pct}%"
+tr_removed = "已移除 {lang}"
+tr_failed = "{lang}：{err}"
+tr_needs_data = "请先选择游戏文件夹：导入需要读取 th08.dat 或 th08.pak"
+tr_attribution = "翻译：Touhou Patch Center（thpatch.net）及其贡献者，CC BY-SA 4.0；游戏文本：Team Shanghai Alice。语言包在本设备上构建于 {dir}，仅供个人使用。"
+tr_site_storage = "此浏览器中的网站存储"
 [group]
-language = "Язык"
-game_data = "Данные игры"
-display = "Экран"
-sound = "Звук"
-accessibility = "Специальные возможности"
-touch = "Сенсорное управление"
-start_game = "Запуск игры"
-cheats = "Читы и отладка"
-tools = "Запись и инструменты"
+language = "语言"
+game_data = "游戏数据"
+display = "显示"
+sound = "声音"
+accessibility = "辅助功能"
+touch = "触控操作"
+start_game = "启动游戏"
+cheats = "作弊与调试"
+tools = "录制与工具"
 
 [entry.game_dir]
-label = "Папка игры"
-summary = "Папка с th08.dat и thbgm.dat"
-help = "папка игры с th08.dat и thbgm.dat (можно указать и первым аргументом)"
+label = "游戏文件夹"
+summary = "包含 th08.dat 和 thbgm.dat 的文件夹"
+help = "包含 th08.dat 和 thbgm.dat 的游戏文件夹（也可以作为第一个参数传入）"
 
 [entry.game_text]
-label = "Язык текста в игре"
-summary = "Язык текста внутри игры"
-help = "язык диалогов и прочего текста игры: follow (как у экранов), ja (оригинал) или код установленного перевода (en, ru, de, pt-br…)"
+label = "游戏文本语言"
+summary = "游戏内文本的语言"
+help = "对话及其他游戏文本的语言：follow（跟随界面）、ja（原版）或已安装翻译的代码（en、ru、de、pt-br…）"
 
 [entry.game_text.words]
-follow = "Как у экранов"
-ja = "日本語 (оригинал)"
+follow = "跟随界面"
+ja = "日本語（原版）"
 
 [entry.language]
-label = "Язык"
-summary = "Язык экранов настроек"
-help = "язык этого экрана и меню порта: auto (язык системы), ja, en или ru"
+label = "语言"
+summary = "设置界面的语言"
+help = "此界面和移植菜单的语言：auto（系统语言）、ja、en 或 ru"
 
 [entry.language.words]
-auto = "Как в системе"
+auto = "跟随系统"
 ja = "日本語"
 en = "English"
 ru = "中文"
 
 [entry.scale]
-label = "Размер окна"
-summary = "Размер окна, кратный 640×480"
-help = "размер окна: 640x480, умноженное на это число (нативная версия)"
+label = "窗口大小"
+summary = "窗口大小，为 640×480 的整数倍"
+help = "窗口大小：640x480 乘以该数值（原生版本）"
 
 [entry.fullscreen]
-label = "Полный экран"
-summary = "Запускать во весь экран"
-help = "запуск во весь экран (нативная версия; F11 или Alt+Enter переключают и сохраняют)"
+label = "全屏"
+summary = "以全屏启动"
+help = "全屏启动（原生版本；F11 或 Alt+Enter 可切换并保存）"
 
 [entry.vsync]
-label = "Вертикальная синхронизация"
-summary = "Синхронизировать кадры с дисплеем"
-help = "вывод с вертикальной синхронизацией (по умолчанию вкл.); темп кадров управляется отдельно"
+label = "垂直同步"
+summary = "将画面与显示器同步"
+help = "垂直同步输出（默认开启）；帧率另行控制"
 
 [entry.screen_margin]
-label = "Отступ от краёв (dp)"
-summary = "Дополнительное свободное место у краёв экрана"
-help = "дополнительный отступ от каждого края экрана в dp — для телефонов, где вырез или скругления углов определяются неверно"
+label = "屏幕边缘留白（dp）"
+summary = "屏幕边缘额外的空白区域"
+help = "每个屏幕边缘额外的留白（dp），适用于刘海或圆角识别不准确的手机"
 unit = " dp"
 
 [entry.screen_margin.words]
-0 = "Нет"
+0 = "无"
 
 [entry.launcher]
-label = "Показывать этот экран при запуске"
-summary = "Показывать этот экран перед игрой"
-help = "показывать этот экран при запуске; если выключено, удерживайте Shift при запуске th08 (веб: ?launcher=1), чтобы снова его увидеть"
+label = "启动时显示此界面"
+summary = "在游戏前显示此界面"
+help = "启动时显示此界面；若关闭，启动 th08 时按住 Shift（网页：?launcher=1）即可再次看到"
 
 [entry.update_check]
-label = "Проверять обновления"
-summary = "Показывать на этом экране, что вышла новая версия"
-help = "раз в день, только с этого экрана, спрашивать GitHub, вышла ли новая версия; кроме самого запроса ничего не отправляется"
+label = "检查更新"
+summary = "在此界面提示有新版本"
+help = "每天一次，仅从此界面向 GitHub 查询是否有新版本；除该请求外不会发送任何内容"
 
 [entry.pause_unfocused]
-label = "Пауза при потере фокуса"
-summary = "Открывать меню порта, если вы переключились в другое окно во время уровня"
-help = "открывать меню порта, когда окно или вкладка браузера теряет фокус во время уровня"
+label = "失焦时暂停"
+summary = "关卡中切换到其他窗口时打开移植菜单"
+help = "关卡中窗口或浏览器标签页失去焦点时打开移植菜单"
 
 [entry.scale_filter]
-label = "Фильтр масштабирования"
-summary = "Как картинка растягивается до размера окна"
-help = "масштабирование окна: smooth (билинейное), sharp (чёткие пиксели со сглаженными краями) или nearest"
+label = "缩放滤镜"
+summary = "画面如何拉伸到窗口大小"
+help = "窗口缩放：smooth（双线性）、sharp（清晰像素，边缘平滑）或 nearest"
 
 [entry.scale_filter.words]
-smooth = "Сглаженный"
-sharp = "Чёткий"
-nearest = "Пиксельный"
+smooth = "平滑"
+sharp = "清晰"
+nearest = "像素化"
 
 [entry.integer_scale]
-label = "Целочисленное масштабирование"
-summary = "Масштаб только целыми кратными 640×480"
-help = "масштабировать картинку на наибольшее целое кратное 640x480, которое помещается"
+label = "整数倍缩放"
+summary = "仅按 640×480 的整数倍缩放"
+help = "将画面缩放到能容纳的最大 640x480 整数倍"
 
 [entry.volume_master]
-label = "Общая громкость"
-summary = "Громкость всего звука игры"
-help = "общая громкость порта в процентах (собственная настройка громкости музыки в игре не меняется)"
+label = "总音量"
+summary = "游戏全部声音的音量"
+help = "移植版的总音量（百分比；游戏自身的音乐音量设置不受影响）"
 
 [entry.volume_master.words]
-0 = "Выкл."
+0 = "关闭"
 
 [entry.volume_bgm]
-label = "Громкость музыки"
-summary = "Громкость музыки"
-help = "громкость музыки порта в процентах"
+label = "音乐音量"
+summary = "音乐的音量"
+help = "移植版的音乐音量（百分比）"
 
 [entry.volume_bgm.words]
-0 = "Выкл."
+0 = "关闭"
 
 [entry.volume_se]
-label = "Громкость эффектов"
-summary = "Громкость звуковых эффектов"
-help = "громкость звуковых эффектов порта в процентах"
+label = "音效音量"
+summary = "音效的音量"
+help = "移植版的音效音量（百分比）"
 
 [entry.volume_se.words]
-0 = "Выкл."
+0 = "关闭"
 
 [entry.mute_unfocused]
-label = "Без звука в фоне"
-summary = "Выключать звук, пока активно другое окно"
-help = "выключать звук, пока окно или вкладка браузера не в фокусе"
+label = "后台静音"
+summary = "其他窗口处于活动状态时静音"
+help = "窗口或浏览器标签页失去焦点时静音"
 
 [entry.audio_buffer]
-label = "Аудиобуфер"
-summary = "Размер буфера вывода; больше — меньше треска"
-help = "буфер вывода звука в кадрах (0 = по умолчанию устройства); увеличьте, если звук трещит"
-unit = " кадров"
+label = "音频缓冲"
+summary = "输出缓冲区大小；越大越不容易出现爆音"
+help = "音频输出缓冲（以帧为单位，0 = 设备默认值）；若出现爆音请调大"
+unit = " 帧"
 
 [entry.audio_buffer.words]
-0 = "Авто"
+0 = "自动"
 
 [entry.color_filter]
-label = "Цветовой фильтр"
-summary = "Цвета, подстроенные под цветовое зрение или контраст"
-help = "цветовой фильтр картинки в окне: off, protan, deutan, tritan (коррекция цветового зрения) или high_contrast"
+label = "颜色滤镜"
+summary = "针对色觉或对比度调整颜色"
+help = "窗口画面的颜色滤镜：off、protan、deutan、tritan（色觉矫正）或 high_contrast"
 
 [entry.color_filter.words]
-off = "Выкл."
-protan = "Протанопия"
-deutan = "Дейтеранопия"
-tritan = "Тританопия"
-high_contrast = "Высокий контраст"
+off = "关闭"
+protan = "红色盲"
+deutan = "绿色盲"
+tritan = "蓝色盲"
+high_contrast = "高对比度"
 
 [entry.brightness]
-label = "Яркость"
-summary = "Гамма картинки; больше — светлее тёмные места"
-help = "гамма картинки в процентах (100 = без изменений; больше — светлее тёмные места)"
+label = "亮度"
+summary = "画面伽马；越高暗部越亮"
+help = "画面伽马（百分比；100 = 不变，越高暗部越亮）"
 
 [entry.brightness.words]
-100 = "Обычная"
+100 = "普通"
 
 [entry.hitboxes]
-label = "Хитбоксы"
-summary = "Контуры зон столкновений (реплеи не меняются)"
-help = "показ хитбоксов: off, player (хитбокс персонажа и зона грейза) или all (ещё пули, лазеры и враги); в игре переключается F3 или в меню порта"
+label = "判定"
+summary = "碰撞区域轮廓（回放不受影响）"
+help = "显示判定：off、player（自机判定与擦弹范围）或 all（还包括子弹、激光和敌人）；游戏中可用 F3 或移植菜单切换"
 
 [entry.hitboxes.words]
-off = "Выкл."
-player = "Персонаж"
-all = "Все"
+off = "关闭"
+player = "自机"
+all = "全部"
 
 [entry.touch]
-label = "Сенсорные кнопки"
-summary = "Экранные кнопки для сенсорных экранов"
-help = "сенсорные кнопки: auto (на сенсорных платформах), on, off"
+label = "触控按钮"
+summary = "适用于触摸屏的屏幕按钮"
+help = "触控按钮：auto（在触控平台上）、on、off"
 
 [entry.touch.words]
-auto = "Авто"
-on = "Вкл."
-off = "Выкл."
+auto = "自动"
+on = "开启"
+off = "关闭"
 
 [entry.touch_handed]
 label = "惯用手"
@@ -282,139 +282,139 @@ right = "右手"
 left = "左手"
 
 [entry.touch_move]
-label = "Перемещение"
-summary = "Как палец двигает персонажа"
-help = "перемещение: перетаскивание (персонаж повторяет движение пальца) или плавающий стик"
+label = "移动方式"
+summary = "手指如何移动自机"
+help = "移动方式：拖动（自机跟随手指移动）或浮动摇杆"
 
 [entry.touch_move.words]
-drag = "Перетаскивание"
-stick = "Плавающий стик"
+drag = "拖动"
+stick = "浮动摇杆"
 
 [entry.touch_sens]
-label = "Чувствительность перетаскивания, %"
-summary = "Насколько персонаж сдвигается за движение пальца"
-help = "чувствительность перетаскивания в процентах (100 = персонаж движется за пальцем 1:1 по картинке игры)"
+label = "拖动灵敏度，%"
+summary = "手指移动时自机移动的幅度"
+help = "拖动灵敏度（百分比；100 = 自机按游戏画面与手指 1:1 移动）"
 
 [entry.touch_focus]
-label = "Кнопка фокуса"
-summary = "Удерживать кнопку или переключать касанием"
-help = "кнопка FOCUS: удерживать или переключать"
+label = "低速按钮"
+summary = "按住按钮或点按切换"
+help = "低速按钮：按住或切换"
 
 [entry.touch_focus.words]
-hold = "Удержание"
-toggle = "Переключение"
+hold = "按住"
+toggle = "切换"
 
 [entry.touch_autofire]
-label = "Автострельба"
-summary = "Стрелять без нажатия кнопки"
-help = "автострельба при старте (только в игре; кнопка AUTO переключает её)"
+label = "自动射击"
+summary = "无需按键即可射击"
+help = "启动时自动射击（仅限游戏内；AUTO 按钮可切换）"
 
 [entry.touch_opacity]
-label = "Непрозрачность кнопок, %"
-summary = "Насколько заметны экранные кнопки"
-help = "непрозрачность сенсорных кнопок в процентах"
+label = "按钮不透明度，%"
+summary = "屏幕按钮的明显程度"
+help = "触控按钮的不透明度（百分比）"
 
 [entry.touch_layout]
-label = "Раскладка кнопок"
-summary = "Положение кнопок из редактора раскладки"
-help = "раскладка кнопок для каждой ориентации (пусто = по умолчанию; её записывает редактор раскладки)"
+label = "按钮布局"
+summary = "布局编辑器中的按钮位置"
+help = "各屏幕方向下的按钮布局（留空 = 默认；由布局编辑器写入）"
 
 [entry.touch_layout.words]
-"" = "По умолчанию"
+"" = "默认"
 
 [entry.save_dir]
-label = "Папка сохранений"
-summary = "Куда сохраняются рекорды и реплеи"
-help = "куда сохраняются score.dat и реплеи (по умолчанию: папка настроек порта)"
+label = "存档文件夹"
+summary = "分数和回放的保存位置"
+help = "score.dat 和回放的保存位置（默认：移植设置文件夹）"
 
 [entry.save_dir.words]
-"" = "По умолчанию"
+"" = "默认"
 
 [entry.font]
-label = "Шрифт диалогов"
-summary = "Японский шрифт для текста диалогов"
-help = "японский шрифт для текста диалогов (нативная версия)"
+label = "对话字体"
+summary = "对话文本使用的日文字体"
+help = "对话文本使用的日文字体（原生版本）"
 
 [entry.font.words]
-"" = "По умолчанию"
+"" = "默认"
 
 [entry.pack]
-label = "Пакет оформления"
-summary = "Папка или zip пакета перевода"
-help = "пакет оформления: папка или .zip либо id пакета в <папка игры>/packs или <папка настроек>/packs; пусто = пакет языка текста игры (только тексты, шрифты и картинки)"
+label = "外观包"
+summary = "翻译包的文件夹或 zip"
+help = "外观包：文件夹或 .zip，或 <游戏文件夹>/packs 或 <设置文件夹>/packs 中的包 ID；留空 = 游戏文本语言对应的包（仅文本、字体和图片）"
 
 [entry.pack.words]
-"" = "По языку текста игры"
+"" = "按游戏文本语言"
 
 [entry.soundfont]
-label = "SoundFont для MIDI"
-summary = "SoundFont для MIDI-музыки"
-help = "SoundFont General MIDI (.sf2) для музыки в режиме MIDI (нативная версия; по умолчанию: системные папки SoundFont)"
+label = "MIDI SoundFont"
+summary = "MIDI 音乐使用的 SoundFont"
+help = "用于 MIDI 模式音乐的 General MIDI SoundFont（.sf2）（原生版本；默认：系统 SoundFont 文件夹）"
 
 [entry.soundfont.words]
-"" = "По умолчанию"
+"" = "默认"
 
 [entry.seed]
-label = "Зерно ГСЧ"
-summary = "Фиксированное зерно случайных чисел при запуске"
-help = "фиксированное зерно ГСЧ при запуске (0-65535)"
+label = "随机数种子"
+summary = "启动时固定的随机数种子"
+help = "启动时固定的随机数种子（0-65535）"
 
 [entry.seed.words]
-"" = "Случайное"
+"" = "随机"
 
 [entry.stage]
-label = "Начать со стадии"
-summary = "Пропустить меню и начать со стадии"
-help = "начать игру с этой стадии (также stageN[.std], idx:N)"
+label = "从关卡开始"
+summary = "跳过菜单，从指定关卡开始"
+help = "从该关卡开始游戏（也可用 stageN[.std]、idx:N）"
 
 [entry.stage.words]
-"" = "Выкл."
-1 = "Стадия 1"
-2 = "Стадия 2"
-3 = "Стадия 3"
-4a = "Стадия 4A"
-4b = "Стадия 4B"
-5 = "Стадия 5"
-6a = "Финал A"
-6b = "Финал B"
-ex = "Экстра"
+"" = "关闭"
+1 = "关卡 1"
+2 = "关卡 2"
+3 = "关卡 3"
+4a = "关卡 4A"
+4b = "关卡 4B"
+5 = "关卡 5"
+6a = "最终关 A"
+6b = "最终关 B"
+ex = "Extra"
 
 [entry.stage_frame]
-label = "Начальный кадр стадии"
-summary = "Перемотать стадию вперёд"
-help = "перемотать стадию на n кадров при первом расчёте"
-unit = " кадр."
+label = "关卡起始帧"
+summary = "将关卡快进"
+help = "首次计算时将关卡快进 n 帧"
+unit = " 帧"
 
 [entry.stage_frame.words]
-0 = "Выкл."
+0 = "关闭"
 
 [entry.player]
-label = "Тип стрельбы"
-summary = "Персонажи для прямого старта стадии или концовки"
-help = "тип стрельбы для --stage/--ending: 0-11 или имя (reimu&yukari, ry, marisa, ...)"
+label = "射击类型"
+summary = "直接开始关卡或结局时使用的自机"
+help = "用于 --stage/--ending 的射击类型：0-11 或名称（reimu&yukari、ry、marisa、...）"
 
 [entry.player.words]
-"" = "По умолчанию"
-"reimu&yukari" = "Рейму и Юкари"
-"marisa&alice" = "Мариса и Алиса"
-"sakuya&remilia" = "Сакуя и Ремилия"
-"youmu&yuyuko" = "Ёму и Ююко"
-reimu = "Рейму"
-yukari = "Юкари"
-marisa = "Мариса"
-alice = "Алиса"
-sakuya = "Сакуя"
-remilia = "Ремилия"
-youmu = "Ёму"
-yuyuko = "Ююко"
+"" = "默认"
+"reimu&yukari" = "灵梦与紫"
+"marisa&alice" = "魔理沙与爱丽丝"
+"sakuya&remilia" = "咲夜与蕾米莉亚"
+"youmu&yuyuko" = "妖梦与幽幽子"
+reimu = "灵梦"
+yukari = "紫"
+marisa = "魔理沙"
+alice = "爱丽丝"
+sakuya = "咲夜"
+remilia = "蕾米莉亚"
+youmu = "妖梦"
+yuyuko = "幽幽子"
 
 [entry.rank]
-label = "Сложность"
-summary = "Сложность для прямого старта стадии или концовки"
-help = "сложность для --stage/--ending (также e/n/h/l/x, 0-4)"
+label = "难度"
+summary = "直接开始关卡或结局时的难度"
+help = "用于 --stage/--ending 的难度（也可用 e/n/h/l/x、0-4）"
 
 [entry.rank.words]
-"" = "По умолчанию"
+"" = "默认"
 easy = "Easy"
 normal = "Normal"
 hard = "Hard"
@@ -422,51 +422,51 @@ lunatic = "Lunatic"
 extra = "Extra"
 
 [entry.power]
-label = "Начальная мощь"
-summary = "Мощь персонажа на первой стадии"
-help = "мощь персонажа на первой стадии"
+label = "初始火力"
+summary = "第一关时自机的火力"
+help = "第一关时自机的火力"
 
 [entry.power.words]
-"" = "По умолчанию"
+"" = "默认"
 
 [entry.continues]
-label = "Использовано продолжений"
-summary = "Продолжения, учтённые при старте концовки"
-help = "сколько продолжений использовано, для --ending"
+label = "已使用续关次数"
+summary = "开始结局时计入的续关次数"
+help = "已使用的续关次数，用于 --ending"
 
 [entry.continues.words]
-0 = "Нет"
+0 = "无"
 
 [entry.ending]
-label = "Показать концовку"
-summary = "Сразу посмотреть концовку"
-help = "запустить концовку: <shot><a|b|c> (плохая / хорошая 6A / хорошая 6B) или файл .end"
+label = "显示结局"
+summary = "立即观看结局"
+help = "启动结局：<shot><a|b|c>（坏结局 / 好结局 6A / 好结局 6B）或 .end 文件"
 
 [entry.ending.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.replay]
-label = "Воспроизвести реплей"
-summary = "Воспроизвести файл реплея или демо"
-help = "воспроизвести файл реплея или демонстрацию"
+label = "播放回放"
+summary = "播放回放或演示文件"
+help = "播放回放或演示文件"
 
 [entry.replay.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.replay_speed]
-label = "Скорость реплея"
-summary = "Скорость воспроизведения этого реплея"
-help = "скорость воспроизведения реплея"
+label = "回放速度"
+summary = "此回放的播放速度"
+help = "回放的播放速度"
 
 [entry.replay_speed.words]
-0 = "Обычная"
-1 = "Замедленная"
-2 = "Ускоренная"
+0 = "正常"
+1 = "慢速"
+2 = "快速"
 
 [entry.replay_rate]
-label = "Темп реплея"
-summary = "С каким темпом порт начинает реплей"
-help = "начальный темп воспроизведения реплея в порте (во время показа меняется F7 / F8)"
+label = "回放速率"
+summary = "移植版开始回放时使用的速率"
+help = "移植版回放的初始播放速率（播放期间可用 F7 / F8 更改）"
 
 [entry.replay_rate.words]
 "1/4" = "¼×"
@@ -477,200 +477,200 @@ help = "начальный темп воспроизведения реплея 
 "8" = "8×"
 
 [entry.replay_save]
-label = "Сохранить реплей в слот"
-summary = "Сохранить запись по окончании игры"
-help = "сохранить запись в этот слот реплея по окончании игры"
+label = "保存回放到槽位"
+summary = "游戏结束后保存录像"
+help = "游戏结束后将录像保存到此回放槽位"
 
 [entry.replay_save.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.input]
-label = "Сценарий ввода"
-summary = "Нажатия кнопок по сценарию"
-help = "файл сценария ввода или строка `frames:mask,...`"
+label = "输入脚本"
+summary = "按脚本模拟按键"
+help = "输入脚本文件或 `frames:mask,...` 字符串"
 
 [entry.input.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.invuln]
-label = "Неуязвимость"
-summary = "Персонаж не может погибнуть"
-help = "персонаж не может погибнуть"
+label = "无敌"
+summary = "自机不会死亡"
+help = "自机不会死亡"
 
 [entry.unlock]
-label = "Открыть всё"
-summary = "Открыть всё в меню"
-help = "открыть все пункты меню"
+label = "全部解锁"
+summary = "解锁菜单中的全部内容"
+help = "解锁所有菜单项"
 
 [entry.enemy_dmg]
-label = "Урон врагам за кадр"
-summary = "Урон каждому врагу в каждом кадре"
-help = "урон за кадр всем уязвимым врагам на экране"
+label = "每帧对敌伤害"
+summary = "每帧对每个敌人造成伤害"
+help = "每帧对屏幕上所有可受伤敌人造成伤害"
 
 [entry.enemy_dmg.words]
-0 = "Выкл."
+0 = "关闭"
 
 [entry.bomb]
-label = "Принудительная бомба"
-summary = "Эта бомба для любого типа стрельбы"
-help = "принудительный номер бомбы (4 = Dissolve Spell)"
+label = "强制 Bomb"
+summary = "任意射击类型都使用此 Bomb"
+help = "强制使用的 Bomb 编号（4 = Dissolve Spell）"
 
 [entry.bomb.words]
-"" = "Выкл."
+"" = "关闭"
 4 = "Dissolve Spell"
 
 [entry.clrd]
-label = "Маски прохождения"
-summary = "Отметить тип стрельбы как пройденный"
-help = "установить маски прохождения этого типа стрельбы на всех сложностях"
+label = "通关标记"
+summary = "将射击类型标记为已通关"
+help = "在所有难度下设置该射击类型的通关标记"
 
 [entry.clrd.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.screen_fx]
-label = "Эффект экрана"
-summary = "Запустить эффект экрана в заданном кадре"
-help = "поставить эффект экрана T в очередь на игровом кадре F"
+label = "画面特效"
+summary = "在指定帧触发画面特效"
+help = "在游戏帧 F 将画面特效 T 加入队列"
 
 [entry.screen_fx.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.shot]
-label = "Скриншот на кадре"
-summary = "Сохранить скриншот на кадре и выйти"
-help = "сохранить /tmp/th08_shot.png на этом кадре и выйти (веб: остановка)"
+label = "指定帧截图"
+summary = "在指定帧保存截图并退出"
+help = "在该帧保存 /tmp/th08_shot.png 并退出（网页：停止）"
 
 [entry.shot.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.shot_size]
-label = "Размер скриншота"
-summary = "Размер этого скриншота"
-help = "снимать --shot через масштабирующий вывод окна в этом размере"
+label = "截图尺寸"
+summary = "此截图的尺寸"
+help = "通过窗口缩放输出以该尺寸进行 --shot 截图"
 
 [entry.shot_size.words]
-"" = "По умолчанию"
+"" = "默认"
 
 [entry.touch_mouse]
-label = "Мышь как касание"
-summary = "Использовать мышь как палец"
-help = "мышь работает как один палец, и показываются сенсорные кнопки (проверка касаний без телефона)"
+label = "鼠标模拟触摸"
+summary = "将鼠标当作手指使用"
+help = "鼠标作为单指使用，并显示触控按钮（无需手机即可测试触摸）"
 
 [entry.turbo]
-label = "Турбо"
-summary = "Кадров логики на один отрисованный кадр"
-help = "N кадров логики на отрисованный кадр, без ограничения темпа"
+label = "加速"
+summary = "每个绘制帧运行的逻辑帧数"
+help = "每个绘制帧运行 N 个逻辑帧，不限制速率"
 
 [entry.turbo.words]
-0 = "Выкл."
+0 = "关闭"
 
 [entry.slot_test]
-label = "Тест слота ANM"
-summary = "Показать один лист спрайтов сеткой"
-help = "нарисовать спрайты этого слота ANM сеткой"
+label = "ANM 槽位测试"
+summary = "以网格显示一张精灵图"
+help = "以网格绘制该 ANM 槽位的精灵"
 
 [entry.slot_test.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.anm]
-label = "Просмотр ANM"
-summary = "Запускать скрипты анимации вместо игры"
-help = "выполнять скрипты ANM вместо игры"
+label = "ANM 查看器"
+summary = "运行动画脚本而非游戏"
+help = "运行 ANM 脚本而非游戏"
 
 [entry.anm.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.anm_int]
-label = "Прерывания ANM"
-summary = "Прерывания анимации на заданных кадрах"
-help = "прерывания --anm на этих кадрах"
+label = "ANM 中断"
+summary = "在指定帧触发动画中断"
+help = "在这些帧触发 --anm 中断"
 
 [entry.anm_int.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.anm_pos]
-label = "Позиции ANM"
-summary = "Где рисуются анимации"
-help = "VM i для --anm в точке (x + i*dx, y)"
+label = "ANM 位置"
+summary = "动画的绘制位置"
+help = "在点 (x + i*dx, y) 处绘制 --anm 的 VM i"
 
 [entry.anm_pos.words]
-"" = "По умолчанию"
+"" = "默认"
 
 [entry.anm_mode]
-label = "Режим отрисовки ANM"
-summary = "Принудительный режим отрисовки анимаций"
-help = "принудительный режим отрисовки для --anm"
+label = "ANM 绘制模式"
+summary = "强制指定动画的绘制模式"
+help = "为 --anm 强制指定绘制模式"
 
 [entry.anm_mode.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.se_log]
-label = "Журнал звуковых эффектов"
-summary = "Записывать звуковые эффекты каждого кадра"
-help = "записывать ID звуковых эффектов, выведенных в каждом кадре"
+label = "音效日志"
+summary = "记录每帧的音效"
+help = "记录每帧输出的音效 ID"
 
 [entry.drawlog]
-label = "Журнал отрисовки"
-summary = "Текстовый журнал всей отрисовки"
-help = "писать текстовый журнал отрисовки: <path>[,from-to] (журналы .xz — инструменты session / drawrun)"
+label = "绘制日志"
+summary = "记录所有绘制的文本日志"
+help = "写入绘制文本日志：<path>[,from-to]（.xz 日志 — session / drawrun 工具）"
 
 [entry.drawlog.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.result_shots]
-label = "Скриншоты экрана итогов"
-summary = "Скриншоты экрана итогов для тестов"
-help = "тесты: скриншоты экрана итогов на этих кадрах"
+label = "结算画面截图"
+summary = "用于测试的结算画面截图"
+help = "测试：在指定帧截取结算画面"
 
 [entry.result_shots.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.test_frames]
-label = "Кадров теста на тип"
-summary = "Кадров на тип стрельбы в тесте персонажа"
-help = "тесты: кадров на тип стрельбы в скриптовом тесте персонажа"
-unit = " кадр."
+label = "每种射击类型的测试帧数"
+summary = "自机测试中每种射击类型使用的帧数"
+help = "测试：自机脚本测试中每种射击类型的帧数"
+unit = " 帧"
 
 [entry.session_rng]
-label = "Вызовы ГСЧ сессии"
-summary = "Записать вызовы ГСЧ в кадре меню"
-help = "инструмент сессий: места вызова ГСЧ в этом кадре меню"
+label = "会话随机数调用"
+summary = "记录菜单帧中的随机数调用"
+help = "会话工具：该菜单帧中随机数的调用位置"
 
 [entry.session_rng.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.session_dump]
-label = "Дамп сессии"
-summary = "Записать персонажа и предметы в кадрах меню"
-help = "инструмент сессий: персонаж и предметы после каждого расчёта кадров меню A..B"
+label = "会话转储"
+summary = "记录菜单帧中的自机与道具"
+help = "会话工具：菜单帧 A..B 每帧计算后的自机与道具"
 
 [entry.session_dump.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.session_pb]
-label = "Пули персонажа в сессии"
-summary = "Записывать и пули персонажа"
-help = "инструмент сессий: также выводить пули персонажа"
+label = "会话中的自机子弹"
+summary = "同时记录自机子弹"
+help = "会话工具：同时输出自机子弹"
 
 [entry.bdump]
-label = "Дамп пуль"
-summary = "Записывать врагов и пули каждого кадра"
-help = "инструмент demosync: враги и пули по кадрам"
+label = "子弹转储"
+summary = "记录每帧的敌人和子弹"
+help = "demosync 工具：按帧记录敌人和子弹"
 
 [entry.idump]
-label = "Дамп предметов"
-summary = "Записывать персонажа и предметы каждого кадра"
-help = "инструмент demosync: персонаж и предметы по кадрам"
+label = "道具转储"
+summary = "记录每帧的自机和道具"
+help = "demosync 工具：按帧记录自机和道具"
 
 [entry.edump]
-label = "Дамп эффектов"
-summary = "Записывать эффекты одного типа каждого кадра"
-help = "инструмент demosync: эффекты этого типа по кадрам"
+label = "特效转储"
+summary = "记录每帧某一类型的特效"
+help = "demosync 工具：按帧记录该类型的特效"
 
 [entry.edump.words]
-"" = "Выкл."
+"" = "关闭"
 
 [entry.sht_dump]
-label = "Дамп файлов стрельбы"
-summary = "Вывести все разобранные файлы стрельбы"
-help = "тесты: вывести все разобранные файлы .sht"
+label = "射击文件转储"
+summary = "输出所有已解析的射击文件"
+help = "测试：输出所有已解析的 .sht 文件"

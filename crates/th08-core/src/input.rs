@@ -95,6 +95,8 @@ pub struct Input {
     pub prev: u16,
     // Port-only touch drag of this poll (see host::RawInput::analog).
     pub analog: [f32; 2],
+    // Replay playback / attract demo substitutes g_Input this frame: the touch drag must not steer the player.
+    pub substituted: bool,
     // Unchanged-input counter 0x164D53C and key-repeat flag 0x164D538.
     pub same_frames: u32,
     pub repeat: bool,
@@ -145,10 +147,18 @@ impl Input {
 
     // The view gameplay objects read (player, dialogue, HUD): g_Input as both raw and held.
     pub fn game_view(&self) -> Input {
+        // Replay playback and the attract demo substitute g_Input; the port-only touch drag is host input, so it
+        // must not steer the player while the game is driving itself (in normal play g_Input is the polled word).
+        let analog = if self.substituted {
+            [0.0, 0.0]
+        } else {
+            self.analog
+        };
         Input {
             raw: self.game[0],
             held: self.game[0],
             prev: self.game_prev[0],
+            analog,
             ..*self
         }
     }
@@ -315,5 +325,20 @@ mod tests {
         assert_eq!(i.held, SHOT | BOMB);
         i.tick();
         assert_eq!((i.held, i.prev), (0, SHOT | BOMB));
+    }
+    // Replay playback and the attract demo substitute g_Input: the port-only touch drag must not steer then.
+    #[test]
+    fn game_view_drops_touch_when_input_is_substituted() {
+        use super::{Input, LEFT, UP};
+        let mut i = Input::default();
+        i.held = UP;
+        i.game[0] = UP;
+        i.analog = [3.0, -2.0];
+        // Normal play: g_Input is the polled word, the drag passes through.
+        assert_eq!(i.game_view().analog, [3.0, -2.0]);
+        // Replay playback / attract demo: g_Input comes from the recording, the touch drag must not steer.
+        i.substituted = true;
+        i.game[0] = LEFT;
+        assert_eq!(i.game_view().analog, [0.0, 0.0]);
     }
 }
