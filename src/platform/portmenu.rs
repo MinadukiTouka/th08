@@ -48,7 +48,8 @@ impl PortMenu {
     ) -> Self {
         let ctx = egui::Context::default();
         ctx.set_visuals(egui::Visuals::dark());
-        if lang == Lang::Ja {
+        // ja / ru (the fork's Chinese) need the CJK face; English falls back to egui's own fonts.
+        if lang != Lang::En {
             i18n::install_fonts(&ctx, font);
         }
         let state = egui_winit::State::new(

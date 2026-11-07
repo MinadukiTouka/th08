@@ -400,6 +400,21 @@ impl Host for AppHost {
             ..Default::default()
         };
         r.analog = self.input.touch.take_analog();
+        // The replay word only holds the 8-way keys: mirror the drag into direction bits so replays of touch runs
+        // move the player at all (the analog value itself is port-only and not recorded). Live play still uses
+        // `analog`, which replaces the 8-way vector in `move_player`.
+        if r.analog != [0.0, 0.0] {
+            if r.analog[1] < 0.0 {
+                r.keys[0] |= UP;
+            } else if r.analog[1] > 0.0 {
+                r.keys[0] |= DOWN;
+            }
+            if r.analog[0] < 0.0 {
+                r.keys[0] |= LEFT;
+            } else if r.analog[0] > 0.0 {
+                r.keys[0] |= RIGHT;
+            }
+        }
         r.pads[0] = self.joystick.poll();
         r
     }
