@@ -55,7 +55,7 @@
 
 - Windows 宿主：见 [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md)（JDK 17、Android SDK 36、NDK r27b、
   Rust 1.98 + `aarch64-linux-android`；Gradle 9.8.2）
-- 版本：`1.0.0`
+- 版本：`1.0.1`
 
 ## 已验证设备
 

@@ -516,6 +516,6 @@ mod tests {
             ui_fmt(Lang::En, "set_by", &[("source", "--stage")]),
             "set by --stage"
         );
-        assert_eq!(group_title(Lang::Ru, Group::Display), "Экран");
+        assert_eq!(group_title(Lang::Ru, Group::Display), "显示");
     }
 }
