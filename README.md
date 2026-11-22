@@ -1,14 +1,38 @@
-# 东方永夜抄 Android 移植（TH08 / Imperishable Night 1.00d）
+# 东方永夜抄 Android 原生移植（TH08 / Imperishable Night 1.00d）— MinadukiTouka
 
-非官方、非盈利的 Android 移植，基于 [kauri-off/th08-rs](https://github.com/kauri-off/th08-rs)
-（Rust 净室重写，GPL-3.0）二次开发。包名 **`com.zun.th08`**，只读取你自己合法持有的
-`th08.dat` / `thbgm.dat`，仓库与公开 APK 均不包含任何游戏数据。
+这是 **MinadukiTouka** 制作的《东方永夜抄 ～ Imperishable Night.》（TH08，1.00d）**Android 原生移植**：
+免模拟器、arm64-v8a 原生 APK，包名 **`com.zun.th08`**。基于
+[kauri-off/th08-rs](https://github.com/kauri-off/th08-rs)（Rust 净室重写，GPL-3.0）二次开发，
+只读取你自己合法持有的 `th08.dat` / `thbgm.dat`。
+
+An Android native port of **Touhou 8: Imperishable Night** (TH08, 1.00d) by **MinadukiTouka** —
+a native arm64-v8a APK, no emulator required.
+
+关键词：东方永夜抄、TH08、Imperishable Night、东方Project、弹幕射击、Android 移植、安卓原生移植、MinadukiTouka、APK 下载。
 
 > **最新版本：v1.0.1**（2026-11-08）
 > 下载：[th08-1.0.1-android-apk.apk](https://github.com/MinadukiTouka/th08/releases/download/v1.0.1/th08-1.0.1-android-apk.apk)
-> 平台：Android 8.0+ / arm64-v8a · 约 20 MB · 不含游戏数据
+> 平台：Android 8.0+ / arm64-v8a · 约 20 MB · 公开包不含游戏数据
+> 测试与反馈 QQ 群：**1074127230**
 
-[下载](#下载) · [安装](#安装) · [操作](#操作方式) · [常见问题](#常见问题) · [构建](#从源码构建) · [更新日志](#更新日志)
+[这个仓库是什么](#这个仓库是什么) · [下载](#下载) · [安装](#安装) · [操作](#操作方式) · [常见问题](#常见问题) · [构建](#从源码构建) · [更新日志](#更新日志)
+
+## 这个仓库是什么
+
+这是 **MinadukiTouka** 个人维护的《东方永夜抄》Android 原生移植项目。它不是模拟器，也不是把原版
+`th08.exe` 套一层 Wine/Box64，而是基于 `kauri-off/th08-rs` 的 Rust 净室重写：游戏逻辑、wgpu 渲染、
+AAudio 音频和输入层编译成 arm64-v8a 原生库，配一个 Kotlin Compose 启动器。
+
+- **是什么**：TH08 1.00d 的 Android 原生移植；包名 `com.zun.th08`；支持触屏、手柄、键盘；
+  中文启动器/设置/移植菜单；60 fps 锁定；存档、回放、音乐室。
+- **不是什么**：不是官方作品；不是模拟器；不是原版游戏镜像；不是破解版；公开包不含
+  `th08.dat` / `thbgm.dat`。
+- **代码从哪来**：上游 `kauri-off/th08-rs`（GPL-3.0-or-later），本仓库是 Android 产品化分支：
+  包名、启动器、触控、中文化、数据加载、签名与发布。
+- **游戏数据从哪来**：需要你自己从正版《东方永夜抄》1.00d 中取出 `th08.dat` 和 `thbgm.dat`；
+  本仓库的源码与公开包不包含游戏数据。
+- **适合谁**：想在 Android 手机上用触屏/手柄玩 TH08、并且已经拥有正版游戏数据的玩家；
+  以及想研究 Rust 游戏移植/Android NativeActivity 的开发者。
 
 ## 特性
 
@@ -32,28 +56,60 @@
 
 - 发布页：[Releases](https://github.com/MinadukiTouka/th08/releases)
 - 校验文件：[SHA256SUMS](https://github.com/MinadukiTouka/th08/releases/download/v1.0.1/SHA256SUMS)
-- **不要下载、传播任何内含 `th08.dat` / `thbgm.dat` 的 APK**（自用包，体积约 493 MiB）。
-  公开包永远不含游戏数据。
+- **公开包可以自由传播、转载、镜像**；它只含 GPL 代码和自制资源，不含 `th08.dat` / `thbgm.dat`。
 
 ## 安装
 
-1. 自备正版《东方永夜抄》**1.00d**，取出 `th08.dat` 与 `thbgm.dat`。
-2. 在手机内部存储建目录 **`Download/th08/`**，把这两个文件放进去（文件名保持原样）：
+公开包不含游戏数据，下面三种方式任选一种。推荐前两种，不需要改系统权限。
+
+### 方式一：用 MT 管理器把数据放进 APK（无需存储权限）
+
+适合想“装完即玩”、不想开「所有文件访问」的人。需要先自备 `th08.dat` 和 `thbgm.dat`。
+
+1. 如果旧版还能打开，先在启动器里 **导出存档**；改过签名的 APK 不能覆盖安装，需要先卸载旧版。
+2. 用 **MT 管理器** 打开公开 APK，进入 **`assets/`** 根目录（不是 `assets/th08/`）。
+3. 添加两个文件，文件名保持小写：
+
+   ```text
+   assets/th08.dat
+   assets/thbgm.dat
+   ```
+
+   不要删除原有的 `assets/settings_schema.json` 等文件。
+
+4. 添加时保持 **不压缩 / Store**。游戏是用 `AAsset_openFileDescriptor64` 直接读 APK 内偏移的；
+   如果这两个文件被 zip 压缩，启动会报 `APK asset ... is not stored uncompressed`。
+5. 退出编辑，用 MT 管理器的 **APK 签名** 功能重新签名，生成新的 APK。
+6. 卸载旧版（会丢存档，所以第 1 步要先导出），安装新 APK（允许「未知来源」）。启动器显示
+   「已内置于本应用」即成功。
+
+> 改完的 APK 约 493 MiB，签名与原版不同；它是含原版数据的个人副本，请不要二次分发。
+
+### 方式二：启动器「导入游戏文件」（无需存储权限）
+
+1. 打开应用，在「游戏数据」一栏点 **导入游戏文件**。
+2. 选择 `th08.dat` 和 `thbgm.dat`；应用会校验并转换成 `th08.pak` / `thbgm.pak`，存到应用私有目录。
+3. 转换约 1 分钟，期间保持应用在前台；需要足够的剩余空间。
+4. 完成后状态显示「已导入」，直接 Play。
+
+这个方式不需要「所有文件访问」，也不会弹权限窗；缺点是会额外占用一份私有空间，卸载应用会一起删除。
+
+### 方式三：手动放到 Download/th08（需要手动开权限）
+
+公开包**不会自动弹存储权限窗**。要用这个方式，必须手动开启「所有文件访问」：
+
+1. 把 `th08.dat`、`thbgm.dat` 放到：
 
    ```text
    /storage/emulated/0/Download/th08/th08.dat
    /storage/emulated/0/Download/th08/thbgm.dat
    ```
 
-3. 安装 APK（Android 8.0+，arm64-v8a）。首次安装需要在系统里允许「安装未知来源应用」。
-4. 打开应用，按启动器提示授予 **「所有文件访问」** 权限（Android 11+；启动器里有按钮）。
-5. 启动器显示「已在 /Download/th08 找到 th08.dat」后即可开始。语言默认跟随系统：
-   中文系统自动显示中文，其它系统可在启动器里切到「中文」。
+2. 在启动器里点 **「允许访问 Download」**，会跳到系统设置；打开本应用的「所有文件访问」。
+3. 回到应用，状态应显示「已在 /Download/th08 找到 th08.dat」。
 
-也支持启动器里的「导入游戏文件」（转换到应用私有存储）作为备选，但推荐直接用 `Download/th08/`：
-升级、重装、换数据都只是换文件，不用重新导入。
-
-**仓库与公开 APK 均不含游戏数据**，请勿上传或分享原版文件。
+如果没有开启「所有文件访问」，应用会直接忽略 `Download/th08`，也不会弹窗提醒——这不是路径写错，
+是权限没开。Android 11+ 的这个权限本身就没有运行时弹窗，只能去系统设置里手动开。
 
 ## 操作方式
 
@@ -78,8 +134,6 @@
 - 键盘：方向键移动，`Z` 射击，`X` Bomb，`Shift` 低速，`Esc` 暂停
 - 手柄：摇杆/十字键移动，按键射击/Bomb/低速，`Select` 打开移植菜单
 
-公开 Release 的 APK 不含游戏数据；请勿在任何地方上传、共享原版数据文件。
-
 ## 存档与备份
 
 - Android 的存档、回放、设置都在应用私有目录：
@@ -91,13 +145,17 @@
 
 ## 常见问题
 
-**启动器说找不到游戏数据？**
-确认路径是 `Download/th08/th08.dat`（不是 `Download/th08.dat`，也不是解压后的子目录），
-文件名不要改；再确认已授予「所有文件访问」。Android 11 以下按启动器提示授予存储权限。
+**启动器说找不到游戏数据，也没有弹权限窗？**
+公开包不会主动申请存储权限，也不会弹窗。用「导入游戏文件」，或者用 MT 管理器把数据放进 APK 的
+`assets/`，或者手动去系统设置开「所有文件访问」再用 `Download/th08`。三条路见[安装](#安装)。
 
-**安装被拒绝 / 提示未知来源？**
-在系统设置里允许文件管理器或浏览器安装未知应用；荣耀等系统还会弹一次「来历不明的应用」，
-需要手动点「继续」。
+**MT 管理器改完 APK 装不上 / 提示签名冲突？**
+改 APK 会换签名，不能覆盖安装官方包。先在旧版里导出存档，卸载旧版，再安装修改版。
+安装后存档不会自动回来，需要「导入存档」。
+
+**MT 管理器加完数据，启动报 `not stored uncompressed`？**
+`th08.dat` / `thbgm.dat` 被 zip 压缩了。重新加一次，选择 **不压缩 / Store**；这两个文件必须在
+APK 内以 Stored 方式保存。
 
 **移植菜单是方块字？**
 1.0.1 已修复：内置了 Noto Sans 子集字体，中文走 `ru` 槽也会安装 CJK 字体。
@@ -114,9 +172,9 @@
 **支持手柄吗？**
 支持。Android 上手柄的 Select 打开移植菜单；触屏和手柄可以同时存在。
 
-**为什么 APK 只有 20 MB？**
-因为不含 `th08.dat` / `thbgm.dat`。游戏数据需要你自己从正版 1.00d 中取出并放到
-`Download/th08/`。这也是本仓库能公开分发的原因。
+**为什么公开包只有 20 MB？**
+因为不含 `th08.dat` / `thbgm.dat`。公开包只含代码和自制资源；游戏数据需要你自己从正版 1.00d 中取出，
+按[安装](#安装)里的任一方式加载。
 
 ## 从源码构建
 
@@ -138,7 +196,7 @@ gradle.bat -p android assembleRelease ^
 ```
 
 自用包加 `-Pth08.data=<含 th08.dat/thbgm.dat 的目录>`，会把数据作为不压缩 assets 打进 APK；
-**这种包包含版权数据，绝对不能发布**。
+这种包包含版权数据，仅用于本地自用。
 
 其他说明：
 
@@ -188,6 +246,23 @@ i18n/ru.toml            中文（复用 ru 槽）
 docs/BUILD_WINDOWS.md   Windows 构建说明
 ```
 
+## 分发说明
+
+- **公开包**（`th08-1.0.1-android-apk.apk`，不含游戏数据）：可以自由传播、转载、镜像，
+  保留本仓库链接即可。
+- **内置数据后的 APK**：含原版 `th08.dat` / `thbgm.dat`，属于个人副本，请不要二次分发。
+- 用 MT 管理器改签过的内置数据包不能覆盖安装公开包；用官方 keystore 构建的内置包与公开包同签名，
+  可以互相覆盖，但数据来源会被替换。
+
+## 版权与联系
+
+- 代码：**GPL-3.0-or-later**（继承上游）；修改后的源码以本仓库形式提供。
+- 游戏数据：《东方永夜抄 ～ Imperishable Night.》的著作权归上海爱丽丝幻乐团及 ZUN 所有；
+  本仓库的源码与公开包不包含游戏数据。
+- 若权利人认为本仓库的**代码、文档或公开包**侵犯其权益，请邮件 **3658949146@qq.com**；
+  核实后我会立即删除相关内容。
+- 问题反馈：[GitHub Issues](https://github.com/MinadukiTouka/th08/issues)；测试群：**1074127230**。
+
 ## 许可与致谢
 
 - 代码：**GPL-3.0-or-later**（继承上游）；修改后的源码以本仓库形式提供
@@ -196,21 +271,17 @@ docs/BUILD_WINDOWS.md   Windows 构建说明
 - 翻译：Touhou Patch Center（thpatch.net）及其贡献者，CC BY-SA 4.0
 - 游戏文本/素材：Team Shanghai Alice / ZUN
 
-问题反馈：[GitHub Issues](https://github.com/MinadukiTouka/th08/issues)
-
 ## 免责声明 / Disclaimer / 免責事項
 
 **中文**：本项目为非官方、非盈利的技术研究项目，与上海爱丽丝幻乐团及 ZUN 无任何关联。
 《东方永夜抄 ～ Imperishable Night.》的著作权归上海爱丽丝幻乐团及 ZUN 所有。
-本项目不包含任何原版游戏数据；使用者必须合法持有原作，仅在个人、非商业环境中使用；
-不得以任何形式分发原版游戏数据。
+公开包不包含任何原版游戏数据；使用者必须合法持有原作，仅在个人、非商业环境中使用。
 
 **English**: This is an unofficial, non-commercial fan project, not affiliated with Team Shanghai
-Alice or ZUN. Touhou 8 and all game assets belong to Team Shanghai Alice. This repository and its
-public APKs contain no game data: you must own a legitimate copy and use it for personal,
-non-commercial purposes only. Never redistribute the original data files.
+Alice or ZUN. Touhou 8 and all game assets belong to Team Shanghai Alice. The public APK contains
+no game data: you must own a legitimate copy and use it for personal, non-commercial purposes only.
 
 **日本語**：本プロジェクトは非公式・非営利の技術研究プロジェクトであり、上海アリス幻楽団および
 ZUN とは一切関係ありません。『東方永夜抄 ～ Imperishable Night.』の著作権は上海アリス幻楽団に
-帰属します。本リポジトリと公開 APK にはゲームデータを含みません。正規品を所有する個人が
-非営利で利用する場合に限ります。ゲームデータの再配布は禁止です。
+帰属します。公開 APK にはゲームデータを含みません。正規品を所有する個人が非営利で利用する場合に
+限ります。
